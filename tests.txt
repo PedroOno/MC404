@@ -1,0 +1,6 @@
+Lista de coisas a serem testadas
+
+1. set_motor_speed:
+    1.1 carregar a struct corretamente, desl eh bits ou bytes?
+    1.2 saltos condicionais corretos
+    1.3 verificar o que é uma velocidade invalida

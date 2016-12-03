@@ -35,7 +35,7 @@ set_motor_speed:
     cmp r1, #0                      @verifica se o id do motor eh menor que 0
     blo invalid_motor_id
 
-    b valid_motor_id
+    b valid_motor_id                @caso nao seja invalida o id do motor
 
     invalid_motor_id:               @caso o id do motor seja invalido retornar -1
         mov r0, #-1
@@ -52,8 +52,7 @@ set_motor_speed:
         ldmfd sp!, {r4-r11, pc}     @retorna da funcao set_motor_speed
 
     valid_set_motor_speed:          @valores validos para velocidade e id
-        mov r0, r1                  @r0 = id
-        mov r1, r2                  @r1 = velocidade
+        stmfd sp!, {r1,r2}          @empilha os valores de id e velocidade para syscall
         mov r7, #18                 @syscall do set_motor_speed
         svc 0x0                     @chamada da syscall
 
