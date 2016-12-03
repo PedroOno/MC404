@@ -124,7 +124,7 @@ read_sonars:
 		bgt end_read_sonars             @ sai do laco
         mov r0, r4                      @ coloca em r0 o sensor a ser verificado
         stmfd sp!, {r0-r3}              @ empilha os registradores caller-save
-        bl read_sonar                    @ realiza leitura do sonar r4 e salva a leitura em r0
+        bl read_sonar                   @ realiza leitura do sonar r4 e salva a leitura em r0
         str r0, [r3]                    @ salva os valor do sensore no vetor
         ldmfd sp!, {r0-r3}              @ desempilha os registradores caller-save
 		add r3, r3, #4                  @ ajustar a proxima posicao do vetor a ser escrita
@@ -132,4 +132,107 @@ read_sonars:
 		b loop_read_sonars
 
 	end_read_sonars:
-	ldmfd sp!, {r4-r11, pc}             @ Desempilha registradores usados
+	ldmfd sp!, {r4-r11, pc}             @ desempilha registradores usados
+
+@ Register a function f to be called whenever the robot gets close to an object. The user
+@ should provide the id of the sensor that must be monitored (sensor_id), a threshold
+@ distance (dist_threshold) and the user function that must be called. The system will
+@ register this information and monitor the sensor distance every DIST_INTERVAL cycles.
+@ Whenever the sensor distance becomes smaller than the dist_threshold, the system calls
+@ the user function.
+@
+@ Parameters:
+@   sensor_id: id of the sensor that must be monitored.
+@   sensor_threshold: threshold distance.
+@   f: address of the function that should be called when the robot gets close to an object.
+@ Returns:
+@   void
+@
+
+register_proximity_callback:
+    stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
+
+    cmp r0, #15						@ verifica se id do sonar a ser verificado eh valido
+    bhi invalid_sonar_rpc
+
+    cmp r0, #0						@ verifica se id do sonar a ser verificado eh valido
+    blo invalid_sonar_rpc
+
+    stmfd sp!, {r0-r3}              @ empilha todos os parametros para a chamada da funcao
+    mov r7, #17                     @ identifica a syscall 17(register_proximity_callback).
+    svc 0x0                         @ faz a chamada da syscall.
+    ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
+
+    invalid_sonar_rpc:
+        mov r0, #-2
+        ldmfd sp!, {r4-r11, pc}     @ retorna da funcao
+
+@**************************************************************/
+@* Timer                                                      */
+@**************************************************************/
+
+@ Adds an alarm to the system.
+@ Parameter:
+@   f: function to be called when the alarm triggers.
+@   time: the time to invoke the alarm function.
+@ Returns:
+@   void
+
+add_alarm:
+    stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
+    stmfd sp!, {r0-r1}              @ empilha os parametros da funçao
+    mov r7, #22                     @ identifica a syscall 17(set_alarm).
+    svc 0x0                         @ faz a chamada da syscall.
+    ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
+
+@ Reads the system time.
+@ Parameter:
+@   @ t: pointer to a variable that will receive the system time.
+@ Returns:
+@   void
+
+get_time:
+    stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
+    mov r1, [r0]                    @ guarda em r1 o ponteiro para onde o tempo deve ser armazenado
+    mov r7, #20                     @ identifica a syscall 17(set_alarm).
+    svc 0x0
+    str r0, [r1]                    @ guarda o valor de tempo na variavel
+    ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
+
+
+@
+@ Sets the system time.
+@ Parameter:
+@   t: the new system time.
+@
+set_time:
+    stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
+    stmfd sp!, {r0}                 @ empilha o parametro da funçao
+    mov r7, #21                     @ identifica a syscall.
+    svc 0x0
+    ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
