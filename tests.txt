@@ -1,6 +1,12 @@
 Lista de coisas a serem testadas
 
+BICO
 1. set_motor_speed:
     1.1 carregar a struct corretamente, desl eh bits ou bytes?
     1.2 saltos condicionais corretos
     1.3 verificar o que é uma velocidade invalida
+2. set_motors_speed
+    2.1 verificar o carregamento das structs
+
+3. read_sonar
+    3.1 
