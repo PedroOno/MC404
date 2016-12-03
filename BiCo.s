@@ -76,16 +76,10 @@ set_motors_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
     ldr r0, =r0                     @ carrega variavel do primeiro motor
     ldr r1, =r1                     @ carrega variavel do segundo motor
-    ldrb r2, [r0]                   @ carrega em r1 o id do primeiro motor a ser setado
-    ldrb r3, [r0, #1]               @ carrega em r2 a velocidade do motor a ser setada
-    stmfd sp!, {r2,r3}              @ empilha os valores de id e velocidade do primeiro motor
-    mov r7, #18                     @ syscall do set_motor_speed
-    svc 0x0                         @ chamada da syscall
-
-    ldrb r2, [r1]                   @ carrega em r1 o id do primeiro motor a ser setado
+    ldrb r2, [r0, #1]               @ carrega em r2 a velocidade do motor a ser setada
     ldrb r3, [r1, #1]               @ carrega em r2 a velocidade do motor a ser setada
-    stmfd sp!, {r2,r3}              @ empilha os valores de id e velocidade do primeiro motor
-    mov r7, #18                     @ syscall do set_motor_speed
+    stmfd sp!, {r2, r3}              @ empilha os valores de id e velocidade do primeiro motor
+    mov r7, #19                     @ syscall do set_motor_speed
     svc 0x0                         @ chamada da syscall
 
     ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
@@ -130,7 +124,7 @@ read_sonars:
 		bgt end_read_sonars             @ sai do laco
         mov r0, r4                      @ coloca em r0 o sensor a ser verificado
         stmfd sp!, {r0-r3}              @ empilha os registradores caller-save
-        b read_sonar                    @ realiza leitura do sonar r4 e salva a leitura em r0
+        bl read_sonar                    @ realiza leitura do sonar r4 e salva a leitura em r0
         str r0, [r3]                    @ salva os valor do sensore no vetor
         ldmfd sp!, {r0-r3}              @ desempilha os registradores caller-save
 		add r3, r3, #4                  @ ajustar a proxima posicao do vetor a ser escrita
