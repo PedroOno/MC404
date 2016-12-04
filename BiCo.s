@@ -1,7 +1,7 @@
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ Description: Uoli Control Application Programming Interface.
 @
-@ Author: Pedro Gabriel Martins Ono 158336
+@ Author: Pedro  Ono 158336
 @
 @ Date: 11/2016
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@

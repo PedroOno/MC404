@@ -3,6 +3,11 @@ Lista de coisas a serem testadas
 Cuidados
     desempilhar TUDO nas chamadas de sistema operacional
 
+Includes
+    .include "gpt.s"
+    .include "sonares.s"
+    .include "motors.s"
+
 BICO
 1. set_motor_speed:
     1.1 carregar a struct corretamente, desl eh bits ou bytes?
