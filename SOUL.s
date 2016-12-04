@@ -170,6 +170,9 @@ IRQ_HANDLER:
     movs pc, lr
 
 
+.include "gpt.s"
+.include "sonars.s"
+.include "motors.s"
 
 .data
 SYSTEM_TIME: .word 0           @ SYSTEM_TIME inicializa com 0
