@@ -38,7 +38,7 @@
 .org 0x0
 .section .iv,"a"
 
-_start:
+_start:@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ACHO QUE NAO TEM ESSE _START AQUI
 
 interrupt_vector:
     b RESET_HANDLER
@@ -137,11 +137,15 @@ GOTO_USER:
     ldr r2, [r2]
     mov pc, r0
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ Tratador de interrupcoes de Syscalls										   @
+@ Troca para o modo SUPERVISOR												   @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 SYSCALL_HANDLER:
     stmfd sp!, {lr}                                 @ salva o link register para retorno
 
 	cmp r7, #16                                     @ read sonar
-	@bleq READ_SONAR
+	bleq READ_SONAR
 
 	cmp r7, #17                                     @ register proximity callback
     @bleq REGISTER_PROXIMITY_CALLBACK
@@ -164,7 +168,97 @@ SYSCALL_HANDLER:
 	ldmfd sp!, {lr}                                 @ recupera o link register da pilha
 
 	movs pc, lr
+	
+@ Syscall read_sonar 
+@ Parametro:
+@ 	[sp]: Identificador do sonar (valores válidos: 0 a 15).
+@ Retorno:
+@ 	r0: Valor obtido na leitura dos sonares; -1 caso o identificador do sonar seja inválido
+READ_SONAR:
+	stmfd sp!, {r4-r11, lr}
+	
+	@ O parametro sera encontrado na pilha do usario/system, para isso temos que mudar para esse modo
+	
+	mrs r0, cprs									@ move para r0 o conteudo de cprs para nao perde-lo
+	msr CPSR_c, #0x1F                               @ Muda para o modo de operacao System
+    ldr r1, [sp]									@ Recupera o parametro e salva em r1
+    msr cpsr, r0  	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior	
+	
+	@ Nesse momento o parametro esta em r1
+	@ Verificacao do parametro
+	cmp r1, #15
+	movhi r0, #-1
+	bhi	fim_READ_SONAR								@ Retorna -1 indicando erro
+	
+	
+	@ leitura do sensor
+	ldr r0, = GPIO_DR
+	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+	mov r1, r1, lsl #2								@ desloca o identificador para a posicao correta
+	bic r2, r2, #0b1111110							@ Limpa os bits do SONAR_MUX e reseta o Trigger
+	add r2, r2, r1									@ Adiciona o identificador
+	str r2, [r0]									@ Grava o identificador em GPIO_DR
+	
+	@ Aguarda aproximadamente 15 ms
+	mov r0, #15
+	bl delay
+	
+	@ Seta o trigger
+	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+	add r2, r2, #0b10								@ Seta o trigger
+	str r2, [r0]									@ Atualiza o GPIO_DR
+	
+	@ Aguarda aproximadamente 15 ms
+	mov r0, #15
+	bl delay
+	
+	@ Reseta o trigger
+	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+	bic r2, r2, #0b10								@ Reseta o trigger
+	str r2, [r0]									@ Atualiza o GPIO_DR
+	
+espera_flag:
+	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+	and r3, r2, #0b1								@ Seleciona o valor da flag
+	cmp r3, #0b10									@ Verifica se a flag esta setada
+	beq	b fim_espera_flag
+	
+	mov r0, #10										@ Aguarda aprox. 10 ms
+	bl delay
+	b espera_flag
+fim_espera_flag:
+	
+	@ Nesse momento a leitura esta em SONAR_DATA e precisa ser extraida
+	mov r2, r2, lsr #6								@ Desloca a leitura para os bits menos significativos
+	and r2, r2, #12									@ Limpa os bits restantes
+	mov r0, r2										@ Move para r0 o valor de retorno
+	
+fim_READ_SONAR:	
+	ldmfd sp!, {r4-r11, pc}							@ Retorna para o tratador de syscalls.
 
+
+@ delay
+@ Aguarda r0 milisegundos (idealmente)
+@ Parametro:
+@	r0: Tempo em milisegundo a ser aguardado
+delay:
+	stmfd sp!, {r4-r11}
+	mov r4, #12										@ Constante de tempo estimada
+	mul r4, r0, r4
+	
+delay_loop:
+	cmp r4, #0
+	beq fim_delay_loop
+	sub r4, r4, #1
+	b delay_loop
+	
+fim_delay_loop:
+	ldmfd sp!, {r4-r11}
+	mov pc, lr
+	
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ Tratador de interrupcoes													   @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 IRQ_HANDLER:
     ldr r0, =GPT_SR             @ avisar que houve interrupcao
     mov r1, #0x1
