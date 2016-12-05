@@ -179,10 +179,10 @@ READ_SONAR:
 	
 	@ O parametro sera encontrado na pilha do usario/system, para isso temos que mudar para esse modo
 	
-	mrs r0, cprs									@ move para r0 o conteudo de cprs para nao perde-lo
+	mrs r0, CPSR									@ move para r0 o conteudo de cprs para nao perde-lo
 	msr CPSR_c, #0x1F                               @ Muda para o modo de operacao System
     ldr r1, [sp]									@ Recupera o parametro e salva em r1
-    msr cpsr, r0  	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior	
+    msr CPSR, r0 	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior	
 	
 	@ Nesse momento o parametro esta em r1
 	@ Verificacao do parametro
@@ -221,7 +221,7 @@ espera_flag:
 	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
 	and r3, r2, #0b1								@ Seleciona o valor da flag
 	cmp r3, #0b10									@ Verifica se a flag esta setada
-	beq	b fim_espera_flag
+	beq fim_espera_flag
 	
 	mov r0, #10										@ Aguarda aprox. 10 ms
 	bl delay
