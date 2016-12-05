@@ -16,22 +16,15 @@
 .global get_time
 .global set_time
 
+
 .align 4
 
 @/**************************************************************/
 @/* Motors                                                     */
 @/**************************************************************/
 
-@/*
-@ * Sets motor speed.
-@ * Parameter:
-@ *   motor: pointer to motor_cfg_t struct containing motor id and motor speed
-@ * Returns:
-@ *   void
-@ */
 set_motor_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
-    ldr r0, =r0                     @ carrega variavel do motor
     ldrb r1, [r0]                   @ carrega em r1 o id do motor a ser setado
 
     cmp r1, #1                      @ verifica se o id do motor eh maior que 1
@@ -62,23 +55,14 @@ set_motor_speed:
         svc 0x0                     @ chamada da syscall
         mov r0, #0                  @ retorna 0 se foi possivel a escrita no motor
 
-ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
+    ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
 
-@/*
-@ * Sets both motors speed.
-@ * Parameters:
-@ *   * m1: pointer to motor_cfg_t struct containing motor id and motor speed
-@ *   * m2: pointer to motor_cfg_t struct containing motor id and motor speed
-@ * Returns:
-@ *   void
-@ */
+
 set_motors_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
-    ldr r0, =r0                     @ carrega variavel do primeiro motor
-    ldr r1, =r1                     @ carrega variavel do segundo motor
     ldrb r2, [r0, #1]               @ carrega em r2 a velocidade do motor a ser setada
     ldrb r3, [r1, #1]               @ carrega em r2 a velocidade do motor a ser setada
-    stmfd sp!, {r2, r3}              @ empilha os valores de id e velocidade do primeiro motor
+    stmfd sp!, {r2, r3}             @ empilha os valores de id e velocidade do primeiro motor
     mov r7, #19                     @ syscall do set_motor_speed
     svc 0x0                         @ chamada da syscall
 
@@ -87,14 +71,6 @@ set_motors_speed:
 @/**************************************************************/
 @/* Sonars                                                     */
 @/**************************************************************/
-
-@/*
-@ * Reads one of the sonars.
-@ * Parameter:
-@ *   sonar_id: the sonar id (ranges from 0 to 15).
-@ * Returns:
-@ *   distance of the selected sonar
-@ */
 
 read_sonar:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
@@ -113,6 +89,7 @@ read_sonar:
     invalid_sonar:
         mov r0, #-1
         ldmfd sp!, {r4-r11, pc}     @ retorna da funcao
+
 
 read_sonars:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
@@ -134,20 +111,6 @@ read_sonars:
 	end_read_sonars:
 	ldmfd sp!, {r4-r11, pc}             @ desempilha registradores usados
 
-@ Register a function f to be called whenever the robot gets close to an object. The user
-@ should provide the id of the sensor that must be monitored (sensor_id), a threshold
-@ distance (dist_threshold) and the user function that must be called. The system will
-@ register this information and monitor the sensor distance every DIST_INTERVAL cycles.
-@ Whenever the sensor distance becomes smaller than the dist_threshold, the system calls
-@ the user function.
-@
-@ Parameters:
-@   sensor_id: id of the sensor that must be monitored.
-@   sensor_threshold: threshold distance.
-@   f: address of the function that should be called when the robot gets close to an object.
-@ Returns:
-@   void
-@
 
 register_proximity_callback:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
@@ -171,13 +134,6 @@ register_proximity_callback:
 @* Timer                                                      */
 @**************************************************************/
 
-@ Adds an alarm to the system.
-@ Parameter:
-@   f: function to be called when the alarm triggers.
-@   time: the time to invoke the alarm function.
-@ Returns:
-@   void
-
 add_alarm:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
     stmfd sp!, {r0-r1}              @ empilha os parametros da funçao
@@ -185,11 +141,6 @@ add_alarm:
     svc 0x0                         @ faz a chamada da syscall.
     ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
 
-@ Reads the system time.
-@ Parameter:
-@   @ t: pointer to a variable that will receive the system time.
-@ Returns:
-@   void
 
 get_time:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
@@ -200,14 +151,19 @@ get_time:
     ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
 
 
-@
-@ Sets the system time.
-@ Parameter:
-@   t: the new system time.
-@
 set_time:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
     stmfd sp!, {r0}                 @ empilha o parametro da funçao
     mov r7, #21                     @ identifica a syscall.
     svc 0x0
     ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
+
+
+
+
+
+
+
+
+
+

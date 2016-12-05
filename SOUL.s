@@ -22,7 +22,7 @@
 .set GPIO_SET_GDIR,         0xFFFC003E
 
 @ linker address
-.set tTEXT,                 0x77800700
+.set tTEXT,                 0x77802000
 .set tDATA,                 0x77801800
 
 @ stack address size 50 each
@@ -133,6 +133,8 @@ RESET_HANDLER:
 GOTO_USER:
     msr CPSR_c, #0x10
     ldr r0, =tTEXT
+    ldr r2, =SYSTEM_TIME
+    ldr r2, [r2]
     mov pc, r0
 
 SYSCALL_HANDLER:
