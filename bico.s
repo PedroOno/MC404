@@ -25,44 +25,26 @@
 
 set_motor_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
-    ldrb r1, [r0]                   @ carrega em r1 o id do motor a ser setado
 
-    cmp r1, #1                      @ verifica se o id do motor eh maior que 1
-    bhi invalid_motor_id            @ comparacao sem sinal
+    ldrb r1, [r0]                   @carrega em r1 o id do motor
+    ldrb r2, [r0, #1]               @ carrega a velocidade em r2
 
-    cmp r1, #0                      @ verifica se o id do motor eh menor que 0
-    blo invalid_motor_id
+    stmfd sp!, {r1,r2}              @ empilha os valores de id e velocidade para syscall
 
-    b valid_motor_id                @ caso nao seja invalida o id do motor
+    mov r7, #18                     @ syscall do set_motor_speed
+    svc 0x0                         @ chamada da syscall
 
-    invalid_motor_id:               @ caso o id do motor seja invalido retornar -1
-        mov r0, #-1
-        ldmfd sp!, {r4-r11, pc}     @ retorna da funcao set_motor_speed
-
-    valid_motor_id:                 @ caso o id seja valido, testar a velocidade
-        ldrb r2, [r0, #1]           @ carrega a velocidade em r2
-        cmp r2, #0                  @ verifica se a velocidade eh negativa
-        blo invalid_motor_speed     @ se for negativa eh invalida
-        b valid_set_motor_speed     @ se for positiva os valores sao validos
-
-    invalid_motor_speed:            @ velocidade invalida para motor
-        mov r0, #-2                 @ retorna -2
-        ldmfd sp!, {r4-r11, pc}     @ retorna da funcao set_motor_speed
-
-    valid_set_motor_speed:          @ valores validos para velocidade e id
-        stmfd sp!, {r1,r2}          @ empilha os valores de id e velocidade para syscall
-        mov r7, #18                 @ syscall do set_motor_speed
-        svc 0x0                     @ chamada da syscall
-        mov r0, #0                  @ retorna 0 se foi possivel a escrita no motor
-
+    ldmfd sp!, {r1,r2}              @ desempilha os registradores dos parametros da funcao
     ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
-
 
 set_motors_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
+
     ldrb r2, [r0, #1]               @ carrega em r2 a velocidade do motor a ser setada
     ldrb r3, [r1, #1]               @ carrega em r2 a velocidade do motor a ser setada
+
     stmfd sp!, {r2, r3}             @ empilha os valores de id e velocidade do primeiro motor
+
     mov r7, #19                     @ syscall do set_motor_speed
     svc 0x0                         @ chamada da syscall
 
