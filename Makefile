@@ -2,12 +2,12 @@
 # Disciplina: MC404 - 1o semestre de 2015
 # Professor: Edson Borin
 #
-# Descrição: Makefile para o segundo trabalho 
+# Descrição: Makefile para o segundo trabalho
 # ----------------------------------------
 
 # ----------------------------------
-# SOUL object files -- Add your SOUL object files here 
-SOUL_OBJS=soul.o 
+# SOUL object files -- Add your SOUL object files here
+SOUL_OBJS=SOUL.o sonars.o motors.o gpt.o
 
 # ----------------------------------
 # Compiling/Assembling/Linking Tools and flags

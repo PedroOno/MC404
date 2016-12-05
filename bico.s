@@ -193,7 +193,7 @@ add_alarm:
 
 get_time:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e o link register
-    mov r1, [r0]                    @ guarda em r1 o ponteiro para onde o tempo deve ser armazenado
+    mov r1, r0                      @ guarda em r1 o ponteiro para onde o tempo deve ser armazenado
     mov r7, #20                     @ identifica a syscall 17(set_alarm).
     svc 0x0
     str r0, [r1]                    @ guarda o valor de tempo na variavel
@@ -211,28 +211,3 @@ set_time:
     mov r7, #21                     @ identifica a syscall.
     svc 0x0
     ldmfd sp!, {r4-r11, pc}         @ desempilha registradores usados
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

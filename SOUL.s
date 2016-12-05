@@ -21,6 +21,15 @@
 @ GPIO_SET
 .set GPIO_SET_GDIR,         0xFFFC003E
 
+@ linker address
+.set tTEXT,                 0x77800700
+.set tDATA,                 0x77801800
+
+@ stack address size 50 each
+.set STACK_SUP_ADRESS,      0x778018FA
+.set STACK_SYS_ADRESS,      0x7780192C
+.set STACK_IRQ_ADRESS,      0x7780195E
+
 
 @ Constante para os alarmes
 .set MAX_ALARMS, 			0x8
@@ -42,7 +51,7 @@ interrupt_vector:
 .text
 
 RESET_HANDLER:
-    ldr r0, =interrupt_vector       @ set interrupt table base address on coprocessor 15.
+    ldr r0, =interrupt_vector                       @ set interrupt table base address on coprocessor 15.
     mcr p15, 0, r0, c12, c0, 0
 
     SET_GPT:
@@ -50,7 +59,6 @@ RESET_HANDLER:
         ldr r2, =SYSTEM_TIME            @ zera o system time
         mov r0, #0
         str r0, [r2]
-
 
         ldr r0, =GPT_CR                 @ confirar o GPT
         mov r1, #0x41                   @ habilitar clock no periferico
@@ -114,42 +122,42 @@ RESET_HANDLER:
         ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
         mov sp, r0                                      @ seta o stack pointer do supervisor
 
-        msr CPSR_c, #0b11111                            @ seta o modo de operacao como system
-        ldr r0, =STACK_SYS_ADRESS                       @ endereco da pilha no system
+        msr CPSR_c, #0x1F                               @ seta o modo de operacao como system
+        ldr r0, =STACK_SYS_ADRESS                       @ endereco da pilha no system/user
         mov sp, r0                                      @ seta o stack pointer no system
 
-        msr CPSR_c, #0b10010                            @ seta o modo de operacao como IRQ
+        msr CPSR_c, #0x12                               @ seta o modo de operacao como IRQ
         ldr r0, =STACK_IRQ_ADRESS                       @ endereco da pilha do IRQ
         mov sp, r0                                      @ seta o stack pointer no IRQ
 
-        msr CPSR_c, #0b10000                            @ muda para modo de user
-        ldr r0, =USER_ADRESS_START
-        mov pc, r0
-
+GOTO_USER:
+    msr CPSR_c, #0x10
+    ldr r0, =tTEXT
+    mov pc, r0
 
 SYSCALL_HANDLER:
     stmfd sp!, {lr}                                 @ salva o link register para retorno
 
 	cmp r7, #16                                     @ read sonar
-	bleq READ_SONAR
+	@bleq READ_SONAR
 
 	cmp r7, #17                                     @ register proximity callback
-    bleq REGISTER_PROXIMITY_CALLBACK
+    @bleq REGISTER_PROXIMITY_CALLBACK
 
 	cmp r7, #18                                     @ set motor speed
-	bleq SET_MOTOR_SPEED
+	@bleq SET_MOTOR_SPEED
 
 	cmp r7, #19                                     @ set motors speed
-	bleq SET_MOTORS_SPEED
+	@bleq SET_MOTORS_SPEED
 
 	cmp r7, #20                                     @ get time
-	bleq GET_TIME
+	@bleq GET_TIME
 
 	cmp r7, #21                                     @ set time
-	bleq SET_TIME
+	@bleq SET_TIME
 
 	cmp r7, #22                                     @ set alarm
-	bleq SET_ALARM
+	@bleq SET_ALARM
 
 	ldmfd sp!, {lr}                                 @ recupera o link register da pilha
 
