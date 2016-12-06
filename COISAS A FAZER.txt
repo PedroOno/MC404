@@ -1,0 +1,10 @@
+>verificar se estamos habilitando as interrepuções qndo entra no irq
+>quando estiver trantando os alarms, o tempo do sistema deve continuar rodando e caso outro alarme venca devemos tratar eles depois que acabar os primeiros.
+> Descobrir se o borin vai alterar o max: "Os símbolos MAX_ALARMS e MAX_CALLBACKS devem ser definidos como constantes utilizando-se a diretiva .set. Defina ambos com o valor padrão 8."
+> e como lidar caso nao tenha como saber o tamanho antes?
+> Testar trata_alarmes
+> Talvez tenhamos que ordenar os alarmes de acordo com o tempo em cada insercao para garantirmos que caso haja duas atualizações do tempo
+de sistema sem que um tratador de alarmes ainda não tenha acabado, invertemos a ordem das execuções....
+> pode permitir criar alarme de tempo que já passou?
+
+
