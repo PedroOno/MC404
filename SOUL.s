@@ -38,7 +38,7 @@
 .org 0x0
 .section .iv,"a"
 
-_start:@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ACHO QUE NAO TEM ESSE _START AQUI
+_start:
 
 interrupt_vector:
     b RESET_HANDLER
@@ -68,7 +68,7 @@ RESET_HANDLER:
         mov r1, #0
         str r1, [r0]
 
-        ldr r0, =GPT_OCR1               @ contar ate 100 o clock
+        ldr r0, =GPT_OCR1               @ contar ate TIME_SZ o clock
         mov r1, #TIME_SZ
         str r1, [r0]
 
@@ -118,6 +118,14 @@ RESET_HANDLER:
         ldr r1, =GPIO_SET_GDIR                          @ salvar essa constante no registrador de direcoes
         str r1, [r0]
 
+	SET_ALARMS:
+		mov r1, #0
+		ldr r0, = num_alarms
+		str r1, [r0]									@ Zera o numero de alarms
+		
+		ldr r0, = BUSY_HANDLER							@ Limpa flag do tratador de alarmes
+		strb r1, [r0]		
+						
     SET_STACK:
         ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
         mov sp, r0                                      @ seta o stack pointer do supervisor
@@ -260,23 +268,87 @@ fim_delay_loop:
 @ Tratador de interrupcoes													   @
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 IRQ_HANDLER:
+	stmfd sp!, {r0-r12, lr}			@ Salva o estado completo para nao prejudicar o codigo do usuario
     ldr r0, =GPT_SR             @ avisar que houve interrupcao
     mov r1, #0x1
     str r1, [r0]
-
+	
+	@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2222222 HABILITA INTERRUPCOES
     ldr r0, =SYSTEM_TIME        @ somar 1 ao contador
     ldr r1, [r0]
     add r1, r1, #1
     str r1, [r0]
+    
+    ldr r2, = BUSY_HANDLER		@ Verifica se o ultimo tratamento dos alarmes nao foi finalizado
+    ldrb r2, [r2]				@ Em caso positivo a verificacao sera realizada na proxima 
+    cmp r2, #0x001				@ Atualizacao do tempo do sistema
+    beq fim_irq_handler			
+        
+    stmfd sp!, {r0-r3}
+    bl trata_alarmes			@ Trata os alarmes pendentes
+    ldmfd sp!, {r0-r3}
+    
+fim_irq_handler:
+    sub lr, lr, #4              @ Corrige valor de lr    
+    ldmfd sp!, {r1-lr}			@ Recupera o estado anterior
+    movs pc, lr					@ Retorna para o modo anterior e recupera as flags
+    
+trata_alarmes:
+	stmfd sp!, {r4-r11,lr}
+	ldr r0, = BUSY_HANDLER		@ Seta flag indicando que o tratador esta ocupado
+	mov r1, #1					
+	strb r1, [r0]
+	
+	ldr r0, = num_alarms
+	ldr r0, [r0]				@ r0 recebe o numero de alarmes criados
+	mov r1, #0					@ indice dos alarmes vistos
+	ldr r2, = alarm_vector		@ Endereco do vetor de alarmes
+	
+loop_alarms:
+	cmp r0, r1					@ Compara o indice com o numero de alarmes criados					
+	beq fim_loop_alarms			@ Verifica se todos os alarmes foram verificados
+	
+	@ verifica se o alarme jah foi acionado, nesse caso ele eh ignorado
+	ldrb r3, [r2,r1]			@ Primeiro byte eh uma flag com esse proposito
+	cmp r3, #0x01				@ Caso seja igual a 1, o alarme ja foi acionado
+	beq passo					@ Caso seja igual a 0, ainda nao
+	
+	@ verifica o tempo
+	@ se chegou aqui pega o endereco
+				
+	
+	blx r3						@ executa a funcao a ser chamada na ocorrencia do alarme
+passo:
+	add r1, r1, #1				@ Incrementa o valor do indice
+	b loop_alarms				@ Salta para o inicio do loop
+	
+fim_loop_alarms:
 
-    sub pc, pc, #4              @ corrigir pc subtraindo pc
-
-    movs pc, lr
-
+	ldr r0, = BUSY_HANDLER		@ Reseta flag indicando que o tratador esta livre
+	mov r1, #0					
+	strb r1, [r0]
+	
+	ldmfd sp!, {r4-r11,pc}
+	
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 .include "gpt.s"
 .include "sonars.s"
 .include "motors.s"
 
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 .data
-SYSTEM_TIME: .word 0           @ SYSTEM_TIME inicializa com 0
+SYSTEM_TIME: 	.word 0           	@ SYSTEM_TIME inicializa com 0
+
+@ Vetor de structs, onde cada elemento representa um alarm
+@ Cada elemento eh composto por 9 bytes, destes:
+@	O primeiro eh utilizado como uma flag que indica se o alarma ja foi tratado (valor = 0x01) ou se ainda nao (valor = 0x00)
+@	Os proximos quatro bytes sao utilizados para registrar o tempo de sistema em que o alarme devera ser tocado
+@	Os ultimos quatro bytes armazenam o endereco da instrucao que sera chamada quando o alarme atingir o tempo definido
+ 1 byte 4 bytes para o endereco da instrucao desse alarme 4 bytes para o tempo do sistema do alarme e 
+struct_alarmes: 		.skip 64	@ Vetor de "structs" dos alarmes
+num_alarms:				.word 0		@ Numero de alarmes criados
+BUSY_HANDLER:			.byte		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)
+
+
+
