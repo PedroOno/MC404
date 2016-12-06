@@ -192,7 +192,7 @@ SYSCALL_HANDLER:
 	cmp r7, #22                                     @ set alarm
 	bleq SET_ALARM
 
-	ldr r2, = #0x78787878							@ Troca o modo de operacao
+	ldr r2, =0x78787878							@ Troca o modo de operacao
 	cmp r7, r2
 	bleq MODE_CHANGE
 
@@ -306,14 +306,14 @@ MODE_CHANGE:
 @ Retorno:
 @	R0:
 @		1) -1 caso o número de alarmes máximo ativo no sistema seja maior do que MAX_ALARMS.
-@		2) -2 caso o tempo seja menor do que o tempo atual do sistema. 
+@		2) -2 caso o tempo seja menor do que o tempo atual do sistema.
 @		3) Caso contrário retorna 0.
 SET_ALARM:
 	stmfd sp!, {r4-r11, lr}
 	ldr r0, [sp, #36]								@ Funcao a ser chamada
 	ldr r1, [sp, #40]								@ Tempo em que ele sera chamada
 
-	ldr r4, = num_alarms							
+	ldr r4, = num_alarms
 	ldr r4, [r4]									@ Numero de alarmes ativos
 
 	ldr r5, = MAX_ALARMS							@ Numero maximo de alarmes
@@ -324,7 +324,7 @@ SET_ALARM:
 	ldr r2, = SYSTEM_TIME
 	ldr r2, [r2]									@ Obtem tempo do sistema
 
-	cmp r2, r1										@ Caso o tempo em que o alarme iria ser 
+	cmp r2, r1										@ Caso o tempo em que o alarme iria ser
 	bhi tempo_invalido								@ programado ja passou nao eh possivel criar esse alarme
 
 	ldr r6, = struct_alarmes						@ Endereco dos alarmes
@@ -343,13 +343,13 @@ loop_set_alarme:
 	str r1, [r6, #1] 								@ Registra o tempo do alarme
 	str r0, [r6, #5]								@ Registra o endereco da funcao a ser chamada
 
-	add r4, r4, #1									
+	add r4, r4, #1
 	ldr r0, = num_alarms
 	str r4, [r0]									@ Atualiza o numero de alarmes
 
 	mov r0, #0										@ Retorno que indica que o alarme foi criado com sucesso
 
-	b fim_set_alarme							
+	b fim_set_alarme
 
 max_ultrapassado:
 	mov r0, #-1
@@ -376,19 +376,19 @@ IRQ_HANDLER:
     ldr r1, [r0]
     add r1, r1, #1
     str r1, [r0]
-    
+
     ldr r2, = BUSY_HANDLER							@ Verifica se o ultimo tratamento dos alarmes nao foi finalizado
-    ldrb r2, [r2]									@ Em caso positivo a verificacao sera realizada na proxima 
+    ldrb r2, [r2]									@ Em caso positivo a verificacao sera realizada na proxima
     cmp r2, #0x001									@ Atualizacao do tempo do sistema
-    beq fim_irq_handler			
-        
+    beq fim_irq_handler
+
     stmfd sp!, {r0-r3}
     bl trata_alarmes								@ Trata os alarmes pendentes
-    ldmfd sp!, {r0-r3}	
-    
+    ldmfd sp!, {r0-r3}
+
 fim_irq_handler:
-    sub lr, lr, #4              					@ Corrige valor de lr    
-    ldmfd sp!, {r1-lr}								@ Recupera o estado anterior
+    sub lr, lr, #4              					@ Corrige valor de lr
+    ldmfd sp!, {r1-r12, lr}								@ Recupera o estado anterior
     movs pc, lr										@ Retorna para o modo anterior e recupera as flags
 
 
@@ -397,7 +397,7 @@ trata_alarmes:
 	stmfd sp!, {r4-r11,lr}
 
 	ldr r0, = BUSY_HANDLER							@ Seta flag indicando que o tratador esta ocupado
-	mov r1, #1					
+	mov r1, #1
 
 	strb r1, [r0]
 
@@ -407,52 +407,52 @@ trata_alarmes:
 	mov r1, #0										@ indice dos alarmes vistos
 	ldr r2, = alarm_vector							@ Endereco do vetor de alarmes
 	mov r4, r2										@ Base para o deslocamento para acesso ao vetor
-	mov r5 #9										@ Constante de deslocamento para acesso ao vetor
+	mov r5, #9										@ Constante de deslocamento para acesso ao vetor
 
 loop_alarms:
-	cmp r0, r1										@ Compara o indice com o numero de alarmes criados					
+	cmp r0, r1										@ Compara o indice com o numero de alarmes criados
 	beq fim_loop_alarms								@ Verifica se todos os alarmes foram verificados
-	
+
 	@ Verifica se a posicao do vetor possui um alarme ativo (ainda nao foi acionado)
 	ldrb r3, [r4]									@ Primeiro byte eh uma flag com esse proposito
 	cmp r3, #0x00									@ Caso seja igual a 0, nao ha alarme ativo nessa posicao
-	beq passo										
+	beq passo
 
 	@ Verifica se jah esta na hora de acionar o alarme
 	ldr r3, [r4, #1]								@ Obtem o tempo em que o alarme atual deve ser acionado
 	ldr r6, = SYSTEM_TIME
 
 	ldr r6, [r6]									@ Obtem o tempo do sistema
-	cmp r3, r6					
+	cmp r3, r6
 	blo passo										@ Ainda nao esta na hora de ser acionado
 	mov r3, #1										@ Seta a flag que indica que esse alarme ja foi acionado
-	strb r3, [r4]				
+	strb r3, [r4]
 
 	@ Executa a instrucao contida no endereco do alarme
 	@ Para isso temos que mudar para o mudo de usuario
 	@ Antes de fazer isso iremos salvar o cpsr para podermos voltar ao modo IRQ
 	mrs r6, CPSR									@ move para r6 o conteudo de cpsr
-	
+
     msr CPSR_c, #0x10 								@ Muda para o modo usuario
 
 	ldr r3, [r4, #5]								@ Carrega a instucao no r3
-	stmfd sp!, {r0-r11}								@ Salva o contexto atual (todos sao salvos para garantir 
+	stmfd sp!, {r0-r11}								@ Salva o contexto atual (todos sao salvos para garantir
 													@ que um erro do usuario comprometa o sistema)
 	blx r3											@ executa a funcao a ser chamada na ocorrencia do alarme
 	ldmfd sp!, {r0-r11}								@ Recupera o contexto atual
 
-	Agora temos que voltar para o modo IRQ utilizaremos uma syscall
+	@ Agora temos que voltar para o modo IRQ utilizaremos uma syscall
 	stmfd sp!, {r6}									@ Parametro com o cpsr que queremos ficar
-	mov r7, #0x78787878								@ Identificador da syscall
+	ldr r7, =0x78787878								@ Identificador da syscall
 	svc 0x0 										@ Chamada da syscal
 
 	@ Nesse momento, o modo IRQ foi retornado, podemos continuar a execucao do loop
 	@ Atualizacao do numero de alarmes ativos
 	ldr r3, = num_alarms
-	ldr r7, = [r3]
+	ldr r7, [r3]
 	sub r7, r7, #1				@ Subtrai uma alarme, o qual ja foi tratado
 	str r7, [r3]				@ Atualiza a variavel na memoria
-	
+
 passo:
 	add r1, r1, #1				@ Incrementa o valor do indice
 	mul r4, r1, r5				@ deslocamento para o proximo elemento da struct

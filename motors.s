@@ -2,7 +2,7 @@
 set_motor_speed_handler:
     stmfd sp!, {r4}                 @ empilha r4, callee-save
 
-    ldr r3, =4                      @ r3 é a constante para acessar a posicao correta da pilha
+    mov r3, #4                      @ r3 é a constante para acessar a posicao correta da pilha
                                     @ SYSCALL_HANDLER empilha lr e stmfd empilha r4
 
     ldrb r0, [sp, -r3]              @ r0 o id do motor a ser setado
@@ -62,7 +62,7 @@ set_motor_speed_handler:
 set_motors_speed_handler:
     stmfd sp!, {r4, r5}             @ empilha r4 e r5
 
-    ldr r3, =8                      @ r3 é a constante para acessar a posicao correta da pilha
+    mov r3, #8                      @ r3 é a constante para acessar a posicao correta da pilha
                                     @ SYSCALL_HANDLER empilha lr e stmfd empilha r4
 
     ldrb r0, [sp, -r3]              @ r0 a velocidade do primeiro motor a ser setado
@@ -104,4 +104,3 @@ set_motors_speed_handler:
         mov r0, #-2
         ldmfd sp!, {r4,r5}
         mov pc, lr
-        
