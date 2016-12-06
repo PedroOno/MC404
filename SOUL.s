@@ -300,7 +300,8 @@ fim_irq_handler:
     sub lr, lr, #4              @ Corrige valor de lr    
     ldmfd sp!, {r1-lr}			@ Recupera o estado anterior
     movs pc, lr					@ Retorna para o modo anterior e recupera as flags
-    
+
+@ Essa funcao trata os alarmes ja criados pelo usuario
 trata_alarmes:
 	stmfd sp!, {r4-r11,lr}
 	ldr r0, = BUSY_HANDLER		@ Seta flag indicando que o tratador esta ocupado
@@ -311,23 +312,34 @@ trata_alarmes:
 	ldr r0, [r0]				@ r0 recebe o numero de alarmes criados
 	mov r1, #0					@ indice dos alarmes vistos
 	ldr r2, = alarm_vector		@ Endereco do vetor de alarmes
-	
+	mov r4, r2					@ Base para o deslocamento para acesso ao vetor
+	mov r5 #9					@ Constante de deslocamento para acesso ao vetor
+
 loop_alarms:
 	cmp r0, r1					@ Compara o indice com o numero de alarmes criados					
 	beq fim_loop_alarms			@ Verifica se todos os alarmes foram verificados
 	
-	@ verifica se o alarme jah foi acionado, nesse caso ele eh ignorado
-	ldrb r3, [r2,r1]			@ Primeiro byte eh uma flag com esse proposito
+	@ Verifica se o alarme jah foi acionado, nesse caso ele eh ignorado
+	ldrb r3, [r4]				@ Primeiro byte eh uma flag com esse proposito
 	cmp r3, #0x01				@ Caso seja igual a 1, o alarme ja foi acionado
 	beq passo					@ Caso seja igual a 0, ainda nao
 	
-	@ verifica o tempo
-	@ se chegou aqui pega o endereco
-				
-	
+	@ Verifica se jah esta na hora de acionar o alarme
+	ldr r3, [r4, #1]			@ Obtem o tempo em que o alarme atual deve ser acionado
+	ldr r6, = SYSTEM_TIME
+	ldr r6, [r6]				@ Obtem o tempo do sistema
+	cmp r3, r6					
+	blo passo					@ Ainda nao esta na hora de ser acionado
+	mov r3, #1					@ Seta a flag que indica que esse alarme ja foi acionado
+	strb r3, [r4]				
+
+	@ Executa a instrucao contida no endereco do alarme
+	ldr r3, [r4, #5]			@ Carrega a instucao no r3
 	blx r3						@ executa a funcao a ser chamada na ocorrencia do alarme
 passo:
 	add r1, r1, #1				@ Incrementa o valor do indice
+	mul r4, r1, r5				@ deslocamento para o proximo elemento da struct 
+	add r4, r4, r2 				@ Endereco do proximo elemento
 	b loop_alarms				@ Salta para o inicio do loop
 	
 fim_loop_alarms:
