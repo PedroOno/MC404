@@ -71,6 +71,10 @@ simulation:
 gdb:
 	arm-eabi-gdbtui $(SYSTEM).x -ex 'target remote localhost:5000'
 
+# source :  source /home/specg12-1/mc404/simulador/set_path_player.sh
+player:
+	 player /home/specg12-1/mc404/simulador/simulador_player/worlds_mc404/simple.cfg
+
 
 
 

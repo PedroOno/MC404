@@ -151,6 +151,20 @@ GOTO_USER:
     ldr r0, =tTEXT
     ldr r2, =SYSTEM_TIME  @test
     ldr r2, [r2]          @test
+
+    @test
+
+    mov r1, #0
+    mov r2, #60
+
+    stmfd sp!, {r1,r2}              @ empilha os valores de id e velocidade para syscall
+
+    mov r7, #18                     @ syscall do set_motor_speed
+    svc 0x0
+
+    laco_infinito:
+        b laco_infinito
+
     mov pc, r0
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -158,7 +172,7 @@ GOTO_USER:
 @ Troca para o modo SUPERVISOR												   @
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 SYSCALL_HANDLER:
-    
+
     stmfd sp!, {lr}                                 @ salva o link register para retorno
 
 	cmp r7, #16                                     @ read sonar
