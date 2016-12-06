@@ -6,5 +6,5 @@
 > Talvez tenhamos que ordenar os alarmes de acordo com o tempo em cada insercao para garantirmos que caso haja duas atualizações do tempo
 de sistema sem que um tratador de alarmes ainda não tenha acabado, invertemos a ordem das execuções....
 > pode permitir criar alarme de tempo que já passou?
-
+>PRECISA INICALIZAR O VETOR DE ALARMES COM ZEROS
 
