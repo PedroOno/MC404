@@ -30,10 +30,18 @@
 .set STACK_SYS_ADRESS,      0x7780192C
 .set STACK_IRQ_ADRESS,      0x7780195E
 
-
-@ Constante para os alarmes
+@ constante para os alarmes
 .set MAX_ALARMS, 			0x8
 .set TIME_SZ,				1000
+
+@ mascaras de bits
+.set TRIGGER_MASK,           0x02
+.set SONAR_MUX_MASK,         0x3C
+.set SONAR_DATA_MASK,        0x7FF80
+.set MOTOR_WRITE_0_MASK,     0x40000
+.set MOTOR_WRITE_1_MASK,     0x2000000
+.set MOTOR_SPEED_0_MASK,     0x1F80000
+.set MOTOR_SPEED_1_MASK,     0xFC000000
 
 .org 0x0
 .section .iv,"a"
@@ -133,8 +141,8 @@ RESET_HANDLER:
 GOTO_USER:
     msr CPSR_c, #0x10
     ldr r0, =tTEXT
-    ldr r2, =SYSTEM_TIME
-    ldr r2, [r2]
+    ldr r2, =SYSTEM_TIME  @test
+    ldr r2, [r2]          @test
     mov pc, r0
 
 SYSCALL_HANDLER:
@@ -147,10 +155,10 @@ SYSCALL_HANDLER:
     @bleq REGISTER_PROXIMITY_CALLBACK
 
 	cmp r7, #18                                     @ set motor speed
-	@bleq SET_MOTOR_SPEED
+	bleq set_motor_speed_handler
 
 	cmp r7, #19                                     @ set motors speed
-	@bleq SET_MOTORS_SPEED
+	bleq set_motors_speed
 
 	cmp r7, #20                                     @ get time
 	@bleq GET_TIME
