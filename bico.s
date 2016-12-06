@@ -40,16 +40,30 @@ set_motor_speed:
 set_motors_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
 
-    ldrb r2, [r0, #1]               @ carrega em r2 a velocidade do motor a ser setada
-    ldrb r3, [r1, #1]               @ carrega em r2 a velocidade do motor a ser setada
+    ldrb r2, [r0]                   @ pega o valor do primeiro campo da struct do primeiro motor
+    ldrb r3, [r1]                   @ pega o valor do primeiro campo da struct do segundo motor
 
-    stmfd sp!, {r2, r3}             @ empilha os valores de id e velocidade do primeiro motor
+    cmp r2, #0                      @ verifica se o id do primeiro motor eh 0
 
-    mov r7, #19                     @ syscall do set_motor_speed
-    svc 0x0                         @ chamada da syscall
+    beq r_order                     @ os motores estao na ordem correta
 
-    ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
+    i_order:                        @ os motores estao na ordem inversa
+        ldrb r3, [r1, #1]           @ pega o valor do segundo campo (speed) da struct do segundo motor
+        ldrb r4, [r0, #1]           @ pega o valor do segundo campo da struct do primeiro motor
+        stmfd sp!, {r3}             @ empilha a vel do motor de id 1
+        stmfd sp!, {r4}             @ empilha a vel do motor de id 0
+        b end_set_ms_spd
 
+    r_order:
+        ldrb r3, [r0, #1]           @ pega o valor do segundo campo (speed) da struct do primeiro motor
+        ldrb r4, [r1, #1]           @ pega o valor do segundo campo da struct do segundo motor
+        stmfd sp!, {r3}             @ empilha a vel do motor de id 1
+        stmfd sp!, {r4}             @ empilha a vel do motor de id 0
+
+    end_set_ms_spd:
+        mov r7, #19                     @ syscall do set_motor_speed
+        svc 0x0
+        ldmfd sp!, {r4-r11, pc}     @ retorna da funcao set_motors_speed
 @/**************************************************************/
 @/* Sonars                                                     */
 @/**************************************************************/
