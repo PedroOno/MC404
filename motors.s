@@ -96,11 +96,12 @@ set_motors_speed_handler:
         mov pc, lr
 
     invalid_m0_spd:
-        mov r0, -1
+        mov r0, #-1
         ldmfd sp!, {r4,r5}
         mov pc, lr
 
     invalid_m1_spd:
-        mov r0, -2
+        mov r0, #-2
         ldmfd sp!, {r4,r5}
         mov pc, lr
+        

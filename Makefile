@@ -7,7 +7,7 @@
 
 # ----------------------------------
 # SOUL object files -- Add your SOUL object files here
-SOUL_OBJS=SOUL.o sonars.o motors.o gpt.o
+SOUL_OBJS=SOUL.o
 
 # ----------------------------------
 # Compiling/Assembling/Linking Tools and flags
@@ -45,8 +45,8 @@ disk.img: SOUL.x LOCO.x
 
 clean:
 	rm -f SOUL.x LOCO.x disk.img *.o
-	
-	
+
+
 ##################################################################################
 USER = user_code
 SYSTEM = SOUL
@@ -65,14 +65,14 @@ LINKER = arm-eabi-ld
 GDB_FLAG = -g
 # target remote localhost:5000
 
-simulation: 
+simulation:
 	$(ARMSIM) --rom=$(DUMBOOT) --sd=disk.img $(GDB_FLAG)
 
 gdb:
 	arm-eabi-gdbtui $(SYSTEM).x -ex 'target remote localhost:5000'
-	
-	
-	
-	
-	
+
+
+
+
+
 
