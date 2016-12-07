@@ -134,6 +134,8 @@ RESET_HANDLER:
 		ldr r0, = BUSY_HANDLER							@ Limpa flag do tratador de alarmes
 		strb r1, [r0]
 
+		bl inicializa_alarmes							@ Inicializa as flags do vetor de alarmes
+
     SET_STACK:
         ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
         mov sp, r0                                      @ seta o stack pointer do supervisor
@@ -149,19 +151,38 @@ RESET_HANDLER:
 GOTO_USER:
     msr CPSR_c, #0x10
     ldr r0, =tTEXT
+    @ test
+    mov r1, # 60        @ tempo
+    ldr r0, = 0xffffffff    @ endereco
+    mov r7, #22
 
-    mov r1, #0
-    mov r2, #60
-
-    stmfd sp!, {r1,r2}              @ empilha os valores de id e velocidade para syscall
-
-    mov r7, #18                     @ syscall do set_motor_speed
+    stmfd sp!, {r0-r1}
     svc 0x0
+    ldmfd sp!, {r0-r1}
 
-    laco_infinito:
-        b laco_infinito
+    b RESET_HANDLER
 
-    mov pc, r0
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ Funcoes auxiliares do RESET_HANDLER                                          @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+inicializa_alarmes:
+    ldr r0, = struct_alarmes							@ Endereco do vetor de alarmes
+    mov r1, #0x00										@ Valor de inicializacao
+    mov r2, #0											@ Indice do vetor
+    ldr r3, = MAX_ALARMS								@ Numero maximo de alarmes
+
+loop_inicializa_alarmes:
+    cmp r2, r3
+    bhs fim_loop_inicializa_alarmes						@ Verifica se chegou ao final do vetor
+    strb r1, [r0]										@ Registra o valor na memoria
+    add r2, r2, #1										@ Incrementa o indice
+    add r0, r0, #9										@ Atualiza o endereco
+    b loop_inicializa_alarmes
+
+fim_loop_inicializa_alarmes:
+
+    mov pc, lr                                          @ Retorno da funcao
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ Tratador de interrupcoes de Syscalls										   @
@@ -178,10 +199,10 @@ SYSCALL_HANDLER:
     @bleq REGISTER_PROXIMITY_CALLBACK
 
 	cmp r7, #18                                     @ set motor speed
-	bleq set_motor_speed_handler
+	@bleq set_motor_speed_handler
 
 	cmp r7, #19                                     @ set motors speed
-	bleq set_motors_speed_handler
+	@bleq set_motors_speed_handler
 
 	cmp r7, #20                                     @ get time
 	@bleq GET_TIME
@@ -310,8 +331,14 @@ MODE_CHANGE:
 @		3) Caso contrário retorna 0.
 SET_ALARM:
 	stmfd sp!, {r4-r11, lr}
-	ldr r0, [sp, #36]								@ Funcao a ser chamada
-	ldr r1, [sp, #40]								@ Tempo em que ele sera chamada
+
+    mrs r2, CPSR									@ move para r0 o conteudo de cprs para nao perde-lo
+	msr CPSR, #0x1F                               	@ Muda para o modo de operacao System
+
+    ldr r0, [sp]									@ Recupera o endereco da funcao do alarme
+    ldr r1, [sp, #4]								@ Recupera o tempo de acionamento do alarme
+
+    msr CPSR, r2 	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior
 
 	ldr r4, = num_alarms
 	ldr r4, [r4]									@ Numero de alarmes ativos
@@ -330,7 +357,6 @@ SET_ALARM:
 	ldr r6, = struct_alarmes						@ Endereco dos alarmes
 	mov r7, #0										@ indice do vetor de alarmes
 
-	@@@@loop de insercao, incrementar contador de alarmes
 loop_set_alarme:
 
 	ldrb r2, [r6]
@@ -388,35 +414,35 @@ IRQ_HANDLER:
 
 fim_irq_handler:
     sub lr, lr, #4              					@ Corrige valor de lr
-    ldmfd sp!, {r1-r12, lr}								@ Recupera o estado anterior
+    ldmfd sp!, {r0-r12, lr}								@ Recupera o estado anterior
     movs pc, lr										@ Retorna para o modo anterior e recupera as flags
 
 
 @ Essa funcao trata os alarmes ja criados pelo usuario
+@ Se ja estiver na hora de acionar o alarme, eh executada sua
+@ instrucao especifica e em seguida ele eh retirado do vetor de alarmes
+
 trata_alarmes:
 	stmfd sp!, {r4-r11,lr}
-
 	ldr r0, = BUSY_HANDLER							@ Seta flag indicando que o tratador esta ocupado
 	mov r1, #1
-
 	strb r1, [r0]
 
-	ldr r0, = num_alarms
+	ldr r0, = MAX_ALARMS                           @ r0 recebe o tamanho do vetor de alarmes
 
-	ldr r0, [r0]									@ r0 recebe o numero de alarmes criados
 	mov r1, #0										@ indice dos alarmes vistos
+
 	ldr r2, = alarm_vector							@ Endereco do vetor de alarmes
 	mov r4, r2										@ Base para o deslocamento para acesso ao vetor
-	mov r5, #9										@ Constante de deslocamento para acesso ao vetor
 
 loop_alarms:
-	cmp r0, r1										@ Compara o indice com o numero de alarmes criados
-	beq fim_loop_alarms								@ Verifica se todos os alarmes foram verificados
+	cmp r1, r0										@ Compara o indice com o numero de maximo de alarmes
+	bhs fim_loop_alarms								@ Verifica se todos os alarmes foram verificados
 
-	@ Verifica se a posicao do vetor possui um alarme ativo (ainda nao foi acionado)
+	@ Verifica se a posicao do vetor esta disponivel para um novo alarme
 	ldrb r3, [r4]									@ Primeiro byte eh uma flag com esse proposito
-	cmp r3, #0x00									@ Caso seja igual a 0, nao ha alarme ativo nessa posicao
-	beq passo
+	cmp r3, #0x01'									@ Caso r3 = 1, quer dizer que a posicao esta ocupada
+	beq passo                                       @ Então verifique a proxima posicao do vetor
 
 	@ Verifica se jah esta na hora de acionar o alarme
 	ldr r3, [r4, #1]								@ Obtem o tempo em que o alarme atual deve ser acionado
@@ -425,11 +451,12 @@ loop_alarms:
 	ldr r6, [r6]									@ Obtem o tempo do sistema
 	cmp r3, r6
 	blo passo										@ Ainda nao esta na hora de ser acionado
-	mov r3, #1										@ Seta a flag que indica que esse alarme ja foi acionado
+
+	mov r3, #0										@ Reseta a flag que indica que esse alarme esta liberado
 	strb r3, [r4]
 
 	@ Executa a instrucao contida no endereco do alarme
-	@ Para isso temos que mudar para o mudo de usuario
+	@ Para isso temos que mudar para o modo de usuario
 	@ Antes de fazer isso iremos salvar o cpsr para podermos voltar ao modo IRQ
 	mrs r6, CPSR									@ move para r6 o conteudo de cpsr
 
@@ -455,8 +482,7 @@ loop_alarms:
 
 passo:
 	add r1, r1, #1				@ Incrementa o valor do indice
-	mul r4, r1, r5				@ deslocamento para o proximo elemento da struct
-	add r4, r4, r2 				@ Endereco do proximo elemento
+	add r4, r3, #9				@ deslocamento para o proximo elemento da struct
 	b loop_alarms				@ Salta para o inicio do loop
 
 fim_loop_alarms:
@@ -465,15 +491,7 @@ fim_loop_alarms:
 	mov r1, #0
 	strb r1, [r0]
 
-	ldmfd sp!, {r4-r11,pc}
-
-
-
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-.include "motors.s"
-.include "gpt.s"
-.include "sonars.s"
-
+	ldmfd sp!, {r4-r11, pc}
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 .data
@@ -490,7 +508,4 @@ alarm_vector:   .word 0             @test
 @ 1 byte 4 bytes para o endereco da instrucao desse alarme 4 bytes para o tempo do sistema do alarme e
 struct_alarmes: 		.skip 64	@ Vetor de "structs" dos alarmes
 num_alarms:				.word 0		@ Numero de alarmes criados
-BUSY_HANDLER:			.byte		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)
-
-
-
+BUSY_HANDLER:			.byte 0		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)
