@@ -25,7 +25,7 @@
 .set tTEXT,                 0x77802000
 .set tDATA,                 0x77801800
 
-@ stack address size 50 each
+@ stack address size 400 bytes each
 .set STACK_SUP_ADRESS,      0x778018FA
 .set STACK_SYS_ADRESS,      0x7780192C
 .set STACK_IRQ_ADRESS,      0x7780195E
@@ -151,23 +151,77 @@ RESET_HANDLER:
 GOTO_USER:
     msr CPSR_c, #0x10
     ldr r0, =tTEXT
-    @ test
-    mov r1, # 60        @ tempo
-    ldr r0, = 0xffffffff    @ endereco
-    mov r7, #22
+@###########################################################################################################################
+b pulo
+funcao_inutil:
+	and r0, r0, r0
+	mov pc, lr
+pulo:
+@ Codigo de usuario
+@ test
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #1        @ tempo
+    bl add_alarm
+a1:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #2        @ tempo
+    bl add_alarm
+a2:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #3        @ tempo
+    bl add_alarm
+s3:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #4        @ tempo
+    bl add_alarm
+a4:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #5        @ tempo
+    bl add_alarm
+a5:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, #6        @ tempo
+    bl add_alarm
+a6:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, # 7        @ tempo
+    bl add_alarm
+a7:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, # 8        @ tempo
+    bl add_alarm
+a8:
+    
+loop_infinito:
+	b loop_infinito
 
-    stmfd sp!, {r0-r1}
-    svc 0x0
-    ldmfd sp!, {r0-r1}
+@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+@ BiCo do Marcelo:
 
-    b RESET_HANDLER
+@ add_alarm
+@ Adds an alarm to the system
+@ Parameters:
+@	r0: function to be called when the alarm triggers (void *)
+@	r1: the time to invoke the alarm function (unsigned int time)
+add_alarm:
+	stmfd sp!, {r4-r11, lr}							@ Salva o estado atual dos registradores
 
+	stmfd sp!, {r0,r1}								@ Empilha os parametros da syscall
+	mov r7, #22										@ Identificador da syscall set_alarm 
+	svc 0x0 										@ Chamada da syscall
+	ldmfd sp!, {r0,r1} 								@ Desempilha os parametros da syscall
+
+	ldmfd sp!, {r4-r11, pc}							@ Recupera o estado atual dos registradores
+
+
+@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+@###########################################################################################################################
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ Funcoes auxiliares do RESET_HANDLER                                          @
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 inicializa_alarmes:
-    ldr r0, = struct_alarmes							@ Endereco do vetor de alarmes
+    ldr r0, = alarm_vector								@ Endereco do vetor de alarmes
     mov r1, #0x00										@ Valor de inicializacao
     mov r2, #0											@ Indice do vetor
     ldr r3, = MAX_ALARMS								@ Numero maximo de alarmes
@@ -213,7 +267,7 @@ SYSCALL_HANDLER:
 	cmp r7, #22                                     @ set alarm
 	bleq SET_ALARM
 
-	ldr r2, =0x78787878							@ Troca o modo de operacao
+	ldr r2, =0x78787878							@ Syscall de troca de modo de operacao
 	cmp r7, r2
 	bleq MODE_CHANGE
 
@@ -354,14 +408,13 @@ SET_ALARM:
 	cmp r2, r1										@ Caso o tempo em que o alarme iria ser
 	bhi tempo_invalido								@ programado ja passou nao eh possivel criar esse alarme
 
-	ldr r6, = struct_alarmes						@ Endereco dos alarmes
+	ldr r6, = alarm_vector							@ Endereco dos alarmes
 	mov r7, #0										@ indice do vetor de alarmes
 
 loop_set_alarme:
-
 	ldrb r2, [r6]
 	cmp r2, #0x01 									@ Verifica se a posicao esta livre,
-	beq loop_set_alarme								@ ou seja, nao possui alarmes ativos
+	beq passo_loop_set_alarme						@ ou seja, nao possui alarmes ativos
 
 	mov r2, #0x01									@ Seta flag indicando que a posicao esta ocupada
 	strb r2, [r6]									@ a partir desse momento
@@ -376,6 +429,10 @@ loop_set_alarme:
 	mov r0, #0										@ Retorno que indica que o alarme foi criado com sucesso
 
 	b fim_set_alarme
+
+passo_loop_set_alarme:
+	add r6, r6, #9									@ Salta para o proximo alarme
+	b loop_set_alarme
 
 max_ultrapassado:
 	mov r0, #-1
@@ -432,28 +489,32 @@ trata_alarmes:
 
 	mov r1, #0										@ indice dos alarmes vistos
 
-	ldr r2, = alarm_vector							@ Endereco do vetor de alarmes
-	mov r4, r2										@ Base para o deslocamento para acesso ao vetor
+	ldr r4, = alarm_vector 							@ Endereco do vetor de alarmes
 
 loop_alarms:
 	cmp r1, r0										@ Compara o indice com o numero de maximo de alarmes
 	bhs fim_loop_alarms								@ Verifica se todos os alarmes foram verificados
 
-	@ Verifica se a posicao do vetor esta disponivel para um novo alarme
+	@ Verifica se a posicao do vetor possui um alarme ativos
 	ldrb r3, [r4]									@ Primeiro byte eh uma flag com esse proposito
-	cmp r3, #0x01'									@ Caso r3 = 1, quer dizer que a posicao esta ocupada
-	beq passo                                       @ Então verifique a proxima posicao do vetor
+	cmp r3, #0x00									@ Caso r3 = 0, quer dizer que a posicao esta livre (nao tem 
+	beq passo                                       @ alarme ativo), portanto essa iteracao do loop sera saltada
+@PERGUNTAR PARA O BORIN cmp r3, #0x01									@ Caso r3 = 1, quer dizer que a posicao esta ocupada
+@bne passo                                       @ Portanto o seu tempo de acionamento deve ser checado
+
 
 	@ Verifica se jah esta na hora de acionar o alarme
 	ldr r3, [r4, #1]								@ Obtem o tempo em que o alarme atual deve ser acionado
+
 	ldr r6, = SYSTEM_TIME
-
 	ldr r6, [r6]									@ Obtem o tempo do sistema
-	cmp r3, r6
-	blo passo										@ Ainda nao esta na hora de ser acionado
 
+	cmp r6, r3 										@ Se o tempo do sistema for menor que o do alarme
+	blo passo										@ isso quer dizerque ainda nao esta na hora de ser acionado
+	
+alarme_acionado:
 	mov r3, #0										@ Reseta a flag que indica que esse alarme esta liberado
-	strb r3, [r4]
+	strb r3, [r4]									@ na proxima vez que essa funcao for chamada
 
 	@ Executa a instrucao contida no endereco do alarme
 	@ Para isso temos que mudar para o modo de usuario
@@ -482,7 +543,7 @@ loop_alarms:
 
 passo:
 	add r1, r1, #1				@ Incrementa o valor do indice
-	add r4, r3, #9				@ deslocamento para o proximo elemento da struct
+	add r4, r4, #9				@ deslocamento para o proximo elemento da struct
 	b loop_alarms				@ Salta para o inicio do loop
 
 fim_loop_alarms:
@@ -495,9 +556,8 @@ fim_loop_alarms:
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 .data
+test:			.word 0
 SYSTEM_TIME: 	.word 0           	@ SYSTEM_TIME inicializa com 0
-alarm_vector:   .word 0             @test
-
 @ Vetor de structs, onde cada elemento representa um alarm
 @ Cada elemento eh composto por 9 bytes, destes:
 @	O primeiro eh utilizado como uma flag que indica se o alarme:
@@ -506,6 +566,6 @@ alarm_vector:   .word 0             @test
 @	Os proximos quatro bytes sao utilizados para registrar o tempo de sistema em que o alarme devera ser tocado
 @	Os ultimos quatro bytes armazenam o endereco da instrucao que sera chamada quando o alarme atingir o tempo definido
 @ 1 byte 4 bytes para o endereco da instrucao desse alarme 4 bytes para o tempo do sistema do alarme e
-struct_alarmes: 		.skip 64	@ Vetor de "structs" dos alarmes
+alarm_vector: 		.skip 72	@ Vetor de "structs" dos alarmes
 num_alarms:				.word 0		@ Numero de alarmes criados
 BUSY_HANDLER:			.byte 0		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)

@@ -1,0 +1,22 @@
+x/72xb 0x77801808		vetor de alarmes
+x/1xb 0x77801858  		BUSY_HANDLER
+x/1wx 0x77801804 SYSTEM_TIME
+
+
+0x778018FA	supervisor
+0x7780192C	system
+0x7780195E	irq
+0x77801900
+1
+
+
+0x778005e0  _start
+0x778005e0  interrupt_vector
+0x77801800  SYSTEM_TIME
+0x77801800  __data_start
+0x77801804  alarm_vector
+0x7780184c  num_alarms
+
+
+ sycall handler Em SET_ALARM: CPSR: 0x60000093
+irq_handler Em alarme acionado, temos que CPSR: 0x60000093
