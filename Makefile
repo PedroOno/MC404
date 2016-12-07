@@ -55,12 +55,12 @@ LINKER = arm-eabi-ld
 
 # IC Computer
 #source /home/specg12-1/mc404/simulador/set_path.sh
- #DUMBOOT = /home/specg12-1/mc404/simulador/simulador_player/bin/dumboot.bin
- #ARMSIM = arm-sim
- #GDB = arm-eabi-gdb
+ DUMBOOT = /home/specg12-1/mc404/simulador/simulador_player/bin/dumboot.bin
+ ARMSIM = arm-sim
+ GDB = arm-eabi-gdb
 
 # ARM Simulator
-GDB = /home/mc404/simuladorfromspecg/simulador/bin/arm-eabi-gdb
+#GDB = /home/mc404/simuladorfromspecg/simulador/bin/arm-eabi-gdb
 
 GDB_FLAG = -g
 # target remote localhost:5000
@@ -71,12 +71,9 @@ simulation:
 gdb:
 	arm-eabi-gdbtui $(SYSTEM).x -ex 'target remote localhost:5000'
 
+gdb2:
+	$(GDB) $(SYSTEM).x -ex 'target remote localhost:5000'
+
 # source :  source /home/specg12-1/mc404/simulador/set_path_player.sh
 player:
 	 player /home/specg12-1/mc404/simulador/simulador_player/worlds_mc404/simple.cfg
-
-
-
-
-
-
