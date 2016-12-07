@@ -25,6 +25,13 @@
 .set tTEXT,                 0x77802000
 .set tDATA,                 0x77801800
 
+@ Processor mode
+.set IRQ_MODE,               Ob00010010 @ 18
+.set IRQ_MODE_NI,            Ob10010010 @ 146            Desabilita IRQ
+.set SUPERVISOR_MODE,        0b10010011 @ 147            Desabilita IRQ
+.set USER_MODE,              0b00010000 @ 16
+.set SYSTEM_MODE,            0b00011111 @ 31
+
 @ stack address size 400 bytes each
 .set STACK_SUP_ADRESS,      0x80000000
 .set STACK_SYS_ADRESS,      0x7FFFFE00
@@ -203,6 +210,13 @@ loop_infinito:
 	b loop_infinito
 
 @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_mode:
+    mrs r0, CPSR
+    and r1, r0, #0b1000000   @ Flag IRQ
+    and r2, r0, #0b10000000  @ Flag FIQ
+    and r0, r0, #0b11111111  @ CPSR
+
+@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @ BiCo do Marcelo:
 
 @ add_alarm
@@ -293,7 +307,8 @@ READ_SONAR:
 	@ O parametro sera encontrado na pilha do usario/system, para isso temos que mudar para esse modo
 
 	mrs r0, CPSR									@ move para r0 o conteudo de cprs para nao perde-lo
-	msr CPSR, #0x1F                               	@ Muda para o modo de operacao System
+    ldr r1, = SYSTEM_MODE
+	msr CPSR, r1                                  	@ Muda para o modo de operacao System
     ldr r1, [sp]									@ Recupera o parametro e salva em r1
     msr CPSR, r0 	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior
 
@@ -394,7 +409,8 @@ SET_ALARM:
 	stmfd sp!, {r4-r11, lr}
 
     mrs r2, CPSR            @ move para r0 o conteudo de cprs para nao perde-lo
-	msr CPSR, #0x1F         @ Muda para o modo de operacao System
+    ldr r1, = SYSTEM_MODE
+	msr CPSR, r1         @ Muda para o modo de operacao System
 
     ldr r0, [sp]			@ Recupera o endereco da funcao do alarme
     ldr r1, [sp, #4]		@ Recupera o tempo de acionamento do alarme
@@ -527,8 +543,8 @@ alarme_acionado:
 	@ Para isso temos que mudar para o modo de usuario
 	@ Antes de fazer isso iremos salvar o cpsr para podermos voltar ao modo IRQ
 	mrs r6, CPSR			@ move para r6 o conteudo de cpsr
-
-    msr CPSR_c, #0x10 		@ Muda para o modo usuario
+    ldr r10, = USER_MODE
+    msr CPSR, r10 		@ Muda para o modo usuario
 
 	ldr r3, [r4, #5]		@ Carrega a instucao no r3
 	stmfd sp!, {r0-r11}		@ Salva o contexto atual (todos sao salvos para garantir

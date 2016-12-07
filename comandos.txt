@@ -1,13 +1,19 @@
 x/72xb 0x77801808		vetor de alarmes
+x/1xb 0x77801850  		num_alarms
 x/1xb 0x77801858  		BUSY_HANDLER
 x/1wx 0x77801804 SYSTEM_TIME
 
 
-0x778018FA	supervisor
-0x7780192C	system
-0x7780195E	irq
-0x77801900
-1
+Imprime a pilha do System
+x/127w 0x7FFFFC04
+
+Imprime pilha do Supervisor
+x/127w 0x7FFFFE04
+
+Imprime pilha do IRQ
+x/127w 0x7FFFFA04
+
+
 
 
 0x778005e0  _start
