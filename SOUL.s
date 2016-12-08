@@ -206,32 +206,116 @@ a6:
     bl add_alarm
 a7:
     ldr r0, = funcao_inutil    @ endereco
-    mov r1, # 8        @ tempo
+    mov r1, # 12       @ tempo
     bl add_alarm
 a8:
 
-fim:
-    ldr r0, = tempo_test
-    bl get_time
+    pos_alarme:
 
-    mov r0, #5
-    bl set_time
+    mrs r0, CPSR
 
-    ldr r1, = tempo_test
-    bl get_time
-teste10:
-    and r0, r0, r0
-loop_infinito:
+    ldr r7, =0x78787878
+    @muda pra modo irq
+    svc 0x0
+    mrs r0, CPSR
+
+    msr CPSR_c, SUPERVISOR_MODE
+    mrs r0, CPSR
+
+    msr CPSR_c, USER_MODE
+    mrs r0, CPSR
+
+    espera5:
+        bl get_time
+        cmp r0, #5
+        bne espera5
+
+retira:
+mrs r0, CPSR
+
+ldr r7, =0x78787878
+@muda pra modo irq
+svc 0x0
+mrs r0, CPSR
+
+msr CPSR_c, SUPERVISOR_MODE
+mrs r0, CPSR
+
+msr CPSR_c, USER_MODE
+mrs r0, CPSR
+
+
     ldr r0, = funcao_inutil    @ endereco
-    mov r1, # 12        @ tempo
+    mov r1, # 10        @ tempo
     bl add_alarm
-	b loop_infinito
+denovo:
+    mrs r0, CPSR
+    ldr r7, =0x78787878
+    @muda pra modo irq
+    svc 0x0
+    mrs r0, CPSR
 
-    b pulo
-    funcao_inutil:
-    	and r0, r0, r0
-    	mov pc, lr
+    msr CPSR_c, SUPERVISOR_MODE
+    mrs r0, CPSR
+
+    msr CPSR_c, USER_MODE
+    mrs r0, CPSR
+
+    espera6:
+        bl get_time
+        cmp r0, #6
+        bne espera6
+seis:
+    mrs r0, CPSR
+    ldr r7, =0x78787878
+    @muda pra modo irq
+    svc 0x0
+    mrs r0, CPSR
+
+    msr CPSR_c, SUPERVISOR_MODE
+    mrs r0, CPSR
+
+    msr CPSR_c, USER_MODE
+    mrs r0, CPSR
+
+
+espera13:
+    bl get_time
+    cmp r0, #13
+    bne espera13
+
+treze:
+mrs r0, CPSR
+ldr r7, =0x78787878
+@muda pra modo irq
+svc 0x0
+mrs r0, CPSR
+
+mov r4, #100
+loopp:
+    mov r1, r4
+    ldr r0, = funcao_inutil    @ endereco
+    bl add_alarm
+    add r4, r4, #1
+    cmp r4, #127
+    bcc loopp
+fora:
+msr CPSR_c, SUPERVISOR_MODE
+mrs r0, CPSR
+
+msr CPSR_c, USER_MODE
+mrs r0, CPSR
+
+infinito:
+
+    b infinito
+
+b pulo
+funcao_inutil:
+and r0, r0,r0
+mov pc, lr
 pulo:
+
 @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @ BiCo do Marcelo:
 
@@ -752,7 +836,18 @@ REGISTER_PROXIMITY_CALLBACK:
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 IRQ_HANDLER:
 	stmfd sp!, {r0-r12, lr}	@ Salva o estado completo para nao prejudicar o codigo do usuario
-    @test
+
+
+    @ Ao entrar em uma interrupcao do tipo IRQ o LR do usuario nao eh salvo
+    @ e devido ao fato de alternamos para o modo usuario dentro do IRQ_HANDLER
+    @ torna-se necessario fazer isso, isso funciona pois o IRQ_HANDLER somente
+    @ gera interrupcoes dos modos IRQ, System e User
+
+    msr CPSR_c, SYSTEM_MODE         @ Troca para System mode
+    mov r0, lr                     @ Move o conteudo do lr do usuario prar r0
+    msr CPSR_c, IRQ_MODE            @ Volta par IRQ
+    stmfd sp!, {r0}                 @ Salva na pilha di IRQ
+
     @ Habilita interrupcoes do tipo IRQ
     ldr r0, = IRQ_MODE       @ Mascara para o modo IRQ habilitado para interrupcoes do tipo IRQ
     msr CPSR_c, r0          @ Grava n
@@ -781,9 +876,16 @@ IRQ_HANDLER:
     ldmfd sp!, {r0-r3}
 
     fim_irq_handler:
+        @ Recupera o lr do usuario
+        ldmfd sp!, {r0}                 @ Recupera o lr
+        msr CPSR_c, SYSTEM_MODE         @ Troca para System mode
+        mov lr, r0                     @ Move o conteudo de r0 do usuario prar lr
+        msr CPSR_c, IRQ_MODE            @ Volta par IRQ
+
         ldmfd sp!, {r0-r12, lr}	@ Recupera o estado anterior
         sub lr, lr, #4          @ Corrige valor de lr
         movs pc, lr				@ Retorna para o modo anterior e recupera as flags
+
 
 
     @ Essa funcao trata os alarmes ja criados pelo usuario
@@ -812,7 +914,6 @@ IRQ_HANDLER:
 
         	@ Verifica se jah esta na hora de acionar o alarme
         	ldr r3, [r4, #1]		@ Obtem o tempo em que o alarme atual deve ser acionado
-
         	ldr r6, = SYSTEM_TIME
         	ldr r6, [r6]			@ Obtem o tempo do sistema
 
@@ -853,7 +954,7 @@ IRQ_HANDLER:
         	b loop_alarms			@ Salta para o inicio do loop
 
         fim_loop_alarms:
-        	ldmfd sp!, {r4-r11, pc}
+        	ldmfd sp!, {r4-r11, pc} @retorna
 
     @ Funcao para tratar as callbacks
     @ Percorre o vetor de callbacks registradas e se o sensor ler
@@ -908,9 +1009,6 @@ IRQ_HANDLER:
             mov r1, #0
             strb r1, [r0]
             ldmfd sp!, {r4-r11, pc} @ recuperar os registradores e retornar da funcao
-
-
-
 
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
