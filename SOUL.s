@@ -172,149 +172,7 @@ GOTO_USER:
     msr CPSR_c, USER_MODE
     ldr r0, =tTEXT
     mov pc, r0
-@###########################################################################################################################
-ldr r0, = 0xfeeeeeee
-stmfd sp!, {r0}
-@ Codigo de usuario
-@ test
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #1        @ tempo
-    bl add_alarm
-a1:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #2        @ tempo
-    bl add_alarm
-a2:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #3        @ tempo
-    bl add_alarm
-s3:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #4        @ tempo
-    bl add_alarm
-a4:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #5        @ tempo
-    bl add_alarm
-a5:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, #6        @ tempo
-    bl add_alarm
-a6:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, # 7        @ tempo
-    bl add_alarm
-a7:
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, # 12       @ tempo
-    bl add_alarm
-a8:
 
-    pos_alarme:
-
-    mrs r0, CPSR
-
-    ldr r7, =0x78787878
-    @muda pra modo irq
-    svc 0x0
-    mrs r0, CPSR
-
-    msr CPSR_c, SUPERVISOR_MODE
-    mrs r0, CPSR
-
-    msr CPSR_c, USER_MODE
-    mrs r0, CPSR
-
-    espera5:
-        bl get_time
-        cmp r0, #5
-        bne espera5
-
-retira:
-mrs r0, CPSR
-
-ldr r7, =0x78787878
-@muda pra modo irq
-svc 0x0
-mrs r0, CPSR
-
-msr CPSR_c, SUPERVISOR_MODE
-mrs r0, CPSR
-
-msr CPSR_c, USER_MODE
-mrs r0, CPSR
-
-
-    ldr r0, = funcao_inutil    @ endereco
-    mov r1, # 10        @ tempo
-    bl add_alarm
-denovo:
-    mrs r0, CPSR
-    ldr r7, =0x78787878
-    @muda pra modo irq
-    svc 0x0
-    mrs r0, CPSR
-
-    msr CPSR_c, SUPERVISOR_MODE
-    mrs r0, CPSR
-
-    msr CPSR_c, USER_MODE
-    mrs r0, CPSR
-
-    espera6:
-        bl get_time
-        cmp r0, #6
-        bne espera6
-seis:
-    mrs r0, CPSR
-    ldr r7, =0x78787878
-    @muda pra modo irq
-    svc 0x0
-    mrs r0, CPSR
-
-    msr CPSR_c, SUPERVISOR_MODE
-    mrs r0, CPSR
-
-    msr CPSR_c, USER_MODE
-    mrs r0, CPSR
-
-
-espera13:
-    bl get_time
-    cmp r0, #13
-    bne espera13
-
-treze:
-mrs r0, CPSR
-ldr r7, =0x78787878
-@muda pra modo irq
-svc 0x0
-mrs r0, CPSR
-
-mov r4, #100
-loopp:
-    mov r1, r4
-    ldr r0, = funcao_inutil    @ endereco
-    bl add_alarm
-    add r4, r4, #1
-    cmp r4, #127
-    bcc loopp
-fora:
-msr CPSR_c, SUPERVISOR_MODE
-mrs r0, CPSR
-
-msr CPSR_c, USER_MODE
-mrs r0, CPSR
-
-infinito:
-
-    b infinito
-
-b pulo
-funcao_inutil:
-and r0, r0,r0
-mov pc, lr
-pulo:
 
 @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @ BiCo do Marcelo:
@@ -785,7 +643,7 @@ REGISTER_PROXIMITY_CALLBACK:
     ldrh r1, [sp, #1]   @ recupera a distancia de threshold da chamada
     ldr r2, [sp, #3]    @ recupera o end da funcao para qual devemos saltar
 
-    msr CPSR, SUPERVISOR    @ volta para o modo Supervisor e recupera o cpsr anterior
+    msr CPSR, SUPERVISOR_MODE    @ volta para o modo Supervisor e recupera o cpsr anterior
 
     ldr r3, =num_callbacks  @ numero de callbacks ja registradas nesse momento
     ldr r3, [r3]
@@ -798,7 +656,7 @@ REGISTER_PROXIMITY_CALLBACK:
     cmp r0, #15 @ verifica se o id do sensor eh valido
     bhi invalid_sensorId
 
-    ldm r5, =callback_vector    @ carrega o vetor de callbacks
+    ldr r5, =callback_vector    @ carrega o vetor de callbacks
     mov r6, #0  @ indice para percorrer o vetor de callbacks
 
     callbacks_loop: @ loop para percorrer as callbacks
@@ -1026,6 +884,6 @@ SYSTEM_TIME: 	.word 0           	@ SYSTEM_TIME inicializa com 0
 alarm_vector: 		    .skip 72	@ Vetor de "structs" dos alarmes
 callback_vector:        .skip 56
 num_alarms:				.word 0		@ Numero de alarmes criados
-num_callbacks           .word 0
+num_callbacks:           .word 0
 BUSY_HANDLER:			.byte 0		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)
 tempo_test:              .skip 4     @test
