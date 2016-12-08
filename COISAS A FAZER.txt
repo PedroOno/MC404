@@ -7,7 +7,9 @@
 de sistema sem que um tratador de alarmes ainda não tenha acabado, invertemos a ordem das execuções....
 > pode permitir criar alarme de tempo que já passou?
 >PRECISA INICALIZAR O VETOR DE ALARMES COM ZEROS
-
+> Verificar empilhamento da pilhha do supervisor na funcao SET_ALARM
+> tirar instrução a mais  em msr
+> verificar pilhas de todas as syscalls
 
 
 
@@ -16,3 +18,5 @@ de sistema sem que um tratador de alarmes ainda não tenha acabado, invertemos a
 DÚVIDAS:
 >verificar se estamos habilitando as interrepuções qndo entra no irq
 > bom jeito de organizar arquivos
+> Dúvida em loop_alarms (2x)
+> 456: blo passo										@ Ainda nao esta na hora de ser acionado(pq isso nao é possivel?)
