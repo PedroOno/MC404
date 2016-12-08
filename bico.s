@@ -37,6 +37,8 @@ set_motor_speed:
     ldmfd sp!, {r1,r2}              @ desempilha os registradores dos parametros da funcao
     ldmfd sp!, {r4-r11, pc}         @ retorna da funcao set_motor_speed
 
+    mov pc, lr
+
 set_motors_speed:
     stmfd sp!, {r4-r11, lr}         @ empilha registradores e lr para retorno da funcao
 
@@ -50,19 +52,18 @@ set_motors_speed:
     i_order:                        @ os motores estao na ordem inversa
         ldrb r3, [r1, #1]           @ pega o valor do segundo campo (speed) da struct do segundo motor
         ldrb r4, [r0, #1]           @ pega o valor do segundo campo da struct do primeiro motor
-        stmfd sp!, {r3}             @ empilha a vel do motor de id 1
-        stmfd sp!, {r4}             @ empilha a vel do motor de id 0
         b end_set_ms_spd
 
     r_order:
         ldrb r3, [r0, #1]           @ pega o valor do segundo campo (speed) da struct do primeiro motor
         ldrb r4, [r1, #1]           @ pega o valor do segundo campo da struct do segundo motor
-        stmfd sp!, {r3}             @ empilha a vel do motor de id 1
-        stmfd sp!, {r4}             @ empilha a vel do motor de id 0
+        b end_set_ms_spd
 
     end_set_ms_spd:
+        stmfd sp!, {r3, r4}             @ empilha a vel do motor de id 1
         mov r7, #19                     @ syscall do set_motor_speed
         svc 0x0
+        ldmfd sp!, {r3, r4}         @ desempilha os parametros da funcao
         ldmfd sp!, {r4-r11, pc}     @ retorna da funcao set_motors_speed
 @/**************************************************************/
 @/* Sonars                                                     */

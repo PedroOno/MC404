@@ -48,7 +48,7 @@ clean:
 
 
 ##################################################################################
-USER = user_code
+USER = LOCO
 SYSTEM = SOUL
 ARM_CC = arm-eabi-as # cross compiling toolchain
 LINKER = arm-eabi-ld
@@ -56,7 +56,7 @@ LINKER = arm-eabi-ld
 # IC Computer
 #source /home/specg12-1/mc404/simulador/set_path.sh
  DUMBOOT = /home/specg12-1/mc404/simulador/simulador_player/bin/dumboot.bin
- ARMSIM = arm-sim
+ ARMSIM = armsim_player
  GDB = arm-eabi-gdb
 
 # ARM Simulator
@@ -67,9 +67,10 @@ GDB_FLAG = -g
 
 simulation:
 	$(ARMSIM) --rom=$(DUMBOOT) --sd=disk.img $(GDB_FLAG)
-
 gdb:
 	arm-eabi-gdbtui $(SYSTEM).x -ex 'target remote localhost:5000'
+gdb3:
+	arm-eabi-gdbtui $(USER).x -ex 'target remote localhost:5000'
 
 # source :  source /home/specg12-1/mc404/simulador/set_path_player.sh
 player:

@@ -26,9 +26,16 @@
 .set tDATA,                 0x77801800
 
 @ stack address size 50 each
-.set STACK_SUP_ADRESS,      0x778018FA
-.set STACK_SYS_ADRESS,      0x7780192C
-.set STACK_IRQ_ADRESS,      0x7780195E
+.set STACK_SUP_ADRESS,      0x80000000
+.set STACK_SYS_ADRESS,      0x7FFFFE00
+.set STACK_IRQ_ADRESS,      0x7FFFFC00
+
+@processor modes
+.set USER,                  0b10000
+.set FIQ,                   0b10001
+.set IRQ,                   0b10010
+.set SUPERVISOR,            0b10011
+.set SYSTEM,                0b11111
 
 @ constante para os alarmes
 .set MAX_ALARMS, 			0x8
@@ -134,12 +141,10 @@ RESET_HANDLER:
 		ldr r0, = BUSY_HANDLER							@ Limpa flag do tratador de alarmes
 		strb r1, [r0]
 
-		bl inicializa_alarmes							@ Inicializa as flags do vetor de alarmes
+        @test
+		@bl inicializa_alarmes							@ Inicializa as flags do vetor de alarmes
 
     SET_STACK:
-        ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
-        mov sp, r0                                      @ seta o stack pointer do supervisor
-
         msr CPSR_c, #0x1F                               @ seta o modo de operacao como system
         ldr r0, =STACK_SYS_ADRESS                       @ endereco da pilha no system/user
         mov sp, r0                                      @ seta o stack pointer no system
@@ -148,41 +153,48 @@ RESET_HANDLER:
         ldr r0, =STACK_IRQ_ADRESS                       @ endereco da pilha do IRQ
         mov sp, r0                                      @ seta o stack pointer no IRQ
 
+        msr CPSR_c, #0x13                               @seta o modo de operacao como SUPERVISOR
+        ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
+        mov sp, r0                                                @ seta o stack pointer no IRQ
+
+@test realmente vai pro programa de usuario
 GOTO_USER:
     msr CPSR_c, #0x10
     ldr r0, =tTEXT
-    @ test
-    mov r1, # 60        @ tempo
-    ldr r0, = 0xffffffff    @ endereco
-    mov r7, #22
+    mov pc, r0
+    @@ test
+    @mov r1, # 60        @ tempo
+    @ldr r0, = 0xffffffff    @ endereco
+    @mov r7, #22
+    @
+    @stmfd sp!, {r0-r1}
+    @svc 0x0
+    @ldmfd sp!, {r0-r1}
 
-    stmfd sp!, {r0-r1}
-    svc 0x0
-    ldmfd sp!, {r0-r1}
-
-    b RESET_HANDLER
+    @test
+    @b RESET_HANDLER
 
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ Funcoes auxiliares do RESET_HANDLER                                          @
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-inicializa_alarmes:
-    ldr r0, = struct_alarmes							@ Endereco do vetor de alarmes
-    mov r1, #0x00										@ Valor de inicializacao
-    mov r2, #0											@ Indice do vetor
-    ldr r3, = MAX_ALARMS								@ Numero maximo de alarmes
-
-loop_inicializa_alarmes:
-    cmp r2, r3
-    bhs fim_loop_inicializa_alarmes						@ Verifica se chegou ao final do vetor
-    strb r1, [r0]										@ Registra o valor na memoria
-    add r2, r2, #1										@ Incrementa o indice
-    add r0, r0, #9										@ Atualiza o endereco
-    b loop_inicializa_alarmes
-
-fim_loop_inicializa_alarmes:
-
-    mov pc, lr                                          @ Retorno da funcao
+@inicializa_alarmes:
+@    ldr r0, = struct_alarmes							@ Endereco do vetor de alarmes
+@    mov r1, #0x00										@ Valor de inicializacao
+@    mov r2, #0											@ Indice do vetor
+@    ldr r3, = MAX_ALARMS								@ Numero maximo de alarmes
+@
+@loop_inicializa_alarmes:
+@    cmp r2, r3
+@    bhs fim_loop_inicializa_alarmes						@ Verifica se chegou ao final do vetor
+@    strb r1, [r0]										@ Registra o valor na memoria
+@    add r2, r2, #1										@ Incrementa o indice
+@    add r0, r0, #9										@ Atualiza o endereco
+@    b loop_inicializa_alarmes
+@
+@fim_loop_inicializa_alarmes:
+@
+@    mov pc, lr                                          @ Retorno da funcao
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ Tratador de interrupcoes de Syscalls										   @
@@ -199,10 +211,10 @@ SYSCALL_HANDLER:
     @bleq REGISTER_PROXIMITY_CALLBACK
 
 	cmp r7, #18                                     @ set motor speed
-	@bleq set_motor_speed_handler
+	bleq set_motor_speed_handler
 
 	cmp r7, #19                                     @ set motors speed
-	@bleq set_motors_speed_handler
+	bleq set_motors_speed_handler
 
 	cmp r7, #20                                     @ get time
 	@bleq GET_TIME
@@ -221,6 +233,138 @@ SYSCALL_HANDLER:
 
 	movs pc, lr
 
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@arquivo para as funcoes do motors
+set_motor_speed_handler:
+
+    stmfd sp!, {r4, r5}                 @ empilha r4, callee-save
+
+    mov r3, #0                      @ r3 é a constante para acessar a posicao correta da pilha
+                                    @ SYSCALL_HANDLER empilha lr e stOmfd empilha r4
+
+    ldr r0, =SYSTEM                 @mudar o codigo para modo system
+    msr CPSR_c, r0
+
+    ldrb r0, [sp, r3]                @ r0 o id do motor a ser setado
+    add r3, r3, #4                  @ ajusta o r3 para acessar a proxima posicao da pilha
+    ldrb r1, [sp, r3]                @ em r1 a velocidade do motor
+
+    ldr r3, =SUPERVISOR                 @mudar o codigo para modo SUPERVISOR
+    msr CPSR_c, r3
+
+    cmp r1, #63                   @ verifica se a velocidade eh menor que 64
+    bhi invalid_m_speed         @ spd > 64 = invalid_motor_speed
+
+    cmp r0, #1                      @ verifica se o id do motor eh maior que 1
+    bhi invalid_m_id            @ id > 1 = invalid_motor_id
+    beq valid_m1_speed      @ id = 1 = setar o motor 1
+
+    valid_m0_id:            @ caso o id seja valido, testar a velocidade
+        ldr r2, =GPIO_DR                        @ carrega endereco do GPIO_DR
+        ldr r3, [r2]                            @ carrega valor do GPIO_DR
+
+        ldr r0, =MOTOR_WRITE_0_MASK                          @ setar o write motor 1 para 0
+        bic r3, r3, r0
+        str r3, [r2]                            @ manda para o GPIO_DR
+
+        ldr r4, =MOTOR_SPEED_0_MASK     @ mascara para zerar a velocidade no input
+        bic r3, r3, r4                          @ zera os bits da velocidade
+
+        orr r3, r3, r1, lsl #19                       @ coloca os bits do motor no r3, para depois enviar para o GPIO_DR
+
+        str r3, [r2]                            @ manda para o GPIO_DR
+
+        mov r0, #0                      @ retorna 0 para a funcao
+        b return_set_m_spd
+
+    valid_m1_speed:          @ valores validos para velocidade e id
+        ldr r2, =GPIO_DR                       @ carrega endereco do GPIO_DR
+        ldr r3, [r2]                            @ carrega valor do GPIO_DR
+
+        ldr r0, =MOTOR_WRITE_1_MASK                          @ setar o write motor 1 para 0
+        bic r3, r3, r0
+        str r3, [r2]                            @ manda para o GPIO_DR
+
+        ldr r4, =MOTOR_SPEED_1_MASK     @ mascara para zerar a velocidade no input
+        bic r3, r3, r4                          @ zera os bits da velocidade
+
+        orr r3, r3, r1, lsl #26                       @ coloca os bits do motor no r3, para depois enviar para o GPIO_DR
+
+        str r3, [r2]                            @ manda para o GPIO_DR
+
+        mov r0, #0                      @ retorna 0 para a funcao
+        b return_set_m_spd
+
+    invalid_m_speed:            @ velocidade invalida para motor
+        mov r0, #-2                 @ retorna -2
+        b return_set_m_spd
+
+    invalid_m_id:               @ caso o id do motor seja invalido retornar -1
+        mov r0, #-1                 @ retorna -1 em caso de erro
+        b return_set_m_spd
+
+    return_set_m_spd:
+        ldmfd sp!, {r4, r5}             @ desempilha r4
+        mov pc, lr                  @ retorna do tratamento
+
+set_motors_speed_handler:
+    stmfd sp!, {r4, r5}             @ empilha r4 e r5
+
+    mov r3, #0                      @ r3 é a constante para acessar a posicao correta da pilha
+                                    @ SYSCALL_HANDLER empilha lr e st0mfd empilha r4
+
+    mrs r0, CPSR
+    ldr r0, =SYSTEM                 @mudar o codigo para modo system
+    msr CPSR_c, r0
+
+    ldrb r0, [sp, -r3]              @ r0 a velocidade do primeiro motor a ser setado
+    add r3, r3, #4                  @ ajusta o r3 para acessar a proxima posicao da pilha
+    ldrb r1, [sp, -r3]              @ em r1 a velocidade do segundo motor a ser setado
+
+    ldr r3, =SUPERVISOR                 @mudar o codigo para modo SUPERVISOR
+    msr CPSR_c, r3
+
+    cmp r0, #0x40                   @ compara velocidade do motor 0 com o limite 64
+    bhi invalid_m0_spd
+
+    cmp r1, #0x40
+    bhi invalid_m1_spd
+
+    valid_m_speed:
+        ldr r2, =GPIO_DR                        @ carrega endereco do GPIO_DR
+        ldr r3, [r2]                            @ carrega valor do GPIO_DR
+
+        ldr r4, =MOTOR_SPEED_0_MASK     @ mascara para zerar a velocidade 0 no input
+        ldr r5, =MOTOR_SPEED_1_MASK     @ mascara para zerar a velocidade 1 no input
+        add r4, r4, r5                  @ mascara para zerar os bits de velocidade dois motores
+        bic r3, r3, r4                          @ zera os bits da velocidade
+
+        mov r0, r0, lsl #19             @ move bits do valor da velocidade para os bits do motor0
+        mov r1, r1, lsl #26             @ move bits do valor da velocidade para os bits do motor1
+        add r0, r0, r1                  @ coloca os bits de velocidade dos dois motores a serem setados
+        orr r3, r0, r3                          @ coloca os bits do motor no r3, para depois enviar para o GPIO_DR
+
+        str r3, [r2]                            @ manda para o GPIO_DR
+
+        mov r0, #0                      @ retorna 0 para a funcao
+        b return_set_ms_spd
+
+    invalid_m0_spd:
+        mov r0, #-1
+        b return_set_ms_spd
+
+    invalid_m1_spd:
+        mov r0, #-2
+        b return_set_ms_spd
+
+    return_set_ms_spd:
+        ldmfd sp!, {r4,r5}
+        mov pc, lr
+
+
+
+
 @ Syscall read_sonar
 @ Parametro:
 @ 	[sp]: Identificador do sonar (valores válidos: 0 a 15).
@@ -229,71 +373,90 @@ SYSCALL_HANDLER:
 READ_SONAR:
 	stmfd sp!, {r4-r11, lr}
 
-	@ O parametro sera encontrado na pilha do usario/system, para isso temos que mudar para esse modo
+    @ O parametro sera encontrado na pilha do usario/system, para isso temos que mudar para esse modo
 
-	mrs r0, CPSR									@ move para r0 o conteudo de cprs para nao perde-lo
-	msr CPSR, #0x1F                               	@ Muda para o modo de operacao System
-    ldr r1, [sp]									@ Recupera o parametro e salva em r1
-    msr CPSR, r0 	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior
 
-	@ Nesse momento o parametro esta em r1
-	@ Verificacao do parametro
+    ldr r0, =SYSTEM                 @ mudar o codigo para modo system
+    msr CPSR_c, r0                  @ muda para o modo de operacao System
+
+    ldrb r1, [sp]					@ recupera o parametro e salva em r1
+
+    ldr r3, =SUPERVISOR             @ mudar o codigo para modo SUPERVISOR
+    msr CPSR_c, r3                  @ volta para o modo Supervisor e recupera o cpsr anterior
+
+	@ nesse momento o parametro esta em r1
+	@ verificacao do parametro
 	cmp r1, #15
 	movhi r0, #-1
 	bhi	fim_READ_SONAR								@ Retorna -1 indicando erro
 
 
-	@ leitura do sensor
-	ldr r0, = GPIO_DR
-	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+	ldr r0, = GPIO_DR  @ leitura do sensor
+	ldr r2, [r0]   @ obtem o conteudo do GPIO_DR
+
 	mov r1, r1, lsl #2								@ desloca o identificador para a posicao correta
-	bic r2, r2, #0b1111110							@ Limpa os bits do SONAR_MUX e reseta o Trigger
-	add r2, r2, r1									@ Adiciona o identificador
-	str r2, [r0]									@ Grava o identificador em GPIO_DR
+
+    ldr r3, =TRIGGER_MASK   @  mascara do bit do trigger para o sonar
+    ldr r4, =SONAR_MUX_MASK @ mascara dos 4 bits do id do sonar
+    add r3, r3, r4  @ soma as mascaras para zerar o trigger e os bits de saida
+	bic r2, r2, r3 	@ limpa os bits do SONAR_MUX e reseta o trigger
+
+	add r2, r2, r1 @ coloca o identificador
+	str r2, [r0]   @ grava o identificador em GPIO_DR
+
+    stmfd sp!, {r0-r3}  @ empilha registradores caller-save
+    mov r0, #15    @ aguarda aproximadamente 15 ms
+	bl delay_sonar
+    ldmfd sp!, {r0-r3} @desempilha registradores caller-save
+
+	@ seta o trigger
+	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+    ldr r1, =TRIGGER_MASK   @ carrega a mascara do trigger
+	add r2, r2, r1			@ seta o trigger
+	str r2, [r0]			@ atualiza o GPIO_DR
 
 	@ Aguarda aproximadamente 15 ms
-	mov r0, #15
-	bl delay
+    stmfd sp!, {r0-r3}  @ empilha registradores caller-save
+    mov r0, #15
+	bl delay_sonar
+    ldmfd sp!, {r0-r3} @desempilha registradores caller-save
 
-	@ Seta o trigger
+    @ reseta o trigger
 	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
-	add r2, r2, #0b10								@ Seta o trigger
-	str r2, [r0]									@ Atualiza o GPIO_DR
+    ldr r1, =TRIGGER_MASK   @ carrega a mascara do trigger
+	add r2, r2, r1			@ seta o trigger
+	str r2, [r0]			@ atualiza o GPIO_DR
 
-	@ Aguarda aproximadamente 15 ms
-	mov r0, #15
-	bl delay
+    espera_flag:
+    	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
+    	and r3, r2, #0x1								@ Seleciona o valor da flag
+    	cmp r3, #0x1									@ Verifica se a flag esta setada
+    	beq fim_espera_flag
 
-	@ Reseta o trigger
-	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
-	bic r2, r2, #0b10								@ Reseta o trigger
-	str r2, [r0]									@ Atualiza o GPIO_DR
+        stmfd sp!, {r0-r3}  @ empilha registradores caller-save
+        mov r0, #10										@ Aguarda aprox. 10 ms
+    	bl delay_sonar
+        ldmfd sp!, {r0-r3} @desempilha registradores caller-save
+    	b espera_flag
 
-espera_flag:
-	ldr r2, [r0]									@ Obtem o conteudo do GPIO_DR
-	and r3, r2, #0b1								@ Seleciona o valor da flag
-	cmp r3, #0b10									@ Verifica se a flag esta setada
-	beq fim_espera_flag
+    fim_espera_flag:
 
-	mov r0, #10										@ Aguarda aprox. 10 ms
-	bl delay
-	b espera_flag
-fim_espera_flag:
+    	@ Nesse momento a leitura esta em SONAR_DATA e precisa ser extraida
+    	mov r2, r2, lsr #0x6								@ Desloca a leitura para os bits menos significativos
+        ldr r1, =0xFFF
+    	and r2, r2, r1
+        mov r1, r2									@ Limpa os bits restantes
+    	mov r0, r1										@ Move para r0 o valor de retorno
 
-	@ Nesse momento a leitura esta em SONAR_DATA e precisa ser extraida
-	mov r2, r2, lsr #6								@ Desloca a leitura para os bits menos significativos
-	and r2, r2, #12									@ Limpa os bits restantes
-	mov r0, r2										@ Move para r0 o valor de retorno
-
-fim_READ_SONAR:
-	ldmfd sp!, {r4-r11, pc}							@ Retorna para o tratador de syscalls.
+    fim_READ_SONAR:
+    	ldmfd sp!, {r4-r11, pc}							@ Retorna para o tratador de syscalls.
 
 
-@ delay
+@ delay_sonar
 @ Aguarda r0 milisegundos (idealmente)
 @ Parametro:
 @	r0: Tempo em milisegundo a ser aguardado
-delay:
+delay_sonar:
 	stmfd sp!, {r4-r11}
 	mov r4, #12										@ Constante de tempo estimada
 	mul r4, r0, r4
