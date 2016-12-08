@@ -63,14 +63,9 @@ SYSTEM = SOUL
 # target remote localhost:5000
 
 simulation:
-<<<<<<< HEAD
-	$(ARMSIM) --rom=$(DUMBOOT) --sd=disk.img $(GDB_FLAG)
-gdb:
-=======
 	$(ARMSIM) --rom=$(DUMBOOT) --sd=disk.img $(LD_FLAGS)
 
 gdb_tui:
->>>>>>> 670b589824e12df96f66a8fb881943a7f367f586
 	arm-eabi-gdbtui $(SYSTEM).x -ex 'target remote localhost:5000'
 gdb3:
 	arm-eabi-gdbtui $(USER).x -ex 'target remote localhost:5000'

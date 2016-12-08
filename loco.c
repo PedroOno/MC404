@@ -27,5 +27,4 @@ void _start(void){
     while(1) {
         read_sonar(sonar_id0);
     }
-
 }
