@@ -8,7 +8,8 @@ de sistema sem que um tratador de alarmes ainda não tenha acabado, invertemos a
 > pode permitir criar alarme de tempo que já passou?
 >PRECISA INICALIZAR O VETOR DE ALARMES COM ZEROS
 > Verificar empilhamento da pilhha do supervisor na funcao SET_ALARM
-
+> tirar instrução a mais  em msr
+> verificar pilhas de todas as syscalls
 
 
 

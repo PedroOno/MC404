@@ -1,11 +1,12 @@
-x/72xb 0x77801808		vetor de alarmes
+vetor de alarmes
+x/72xb 0x77801808
 x/1xb 0x77801850  		num_alarms
 x/1xb 0x77801858  		BUSY_HANDLER
-x/1wx 0x77801804 SYSTEM_TIME
+x/1wx 0x77801804        SYSTEM_TIME
 
 
 Imprime a pilha do System
-x/127w 0x7FFFFC04
+x/127wh 0x7FFFFC04
 
 Imprime pilha do Supervisor
 x/127w 0x7FFFFE04

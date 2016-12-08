@@ -26,8 +26,8 @@
 .set tDATA,                 0x77801800
 
 @ Processor mode
-.set IRQ_MODE,               Ob00010010 @ 18
-.set IRQ_MODE_NI,            Ob10010010 @ 146            Desabilita IRQ
+.set IRQ_MODE,               0b00010010 @ 18
+.set IRQ_MODE_NI,            0b10010010 @ 146            Desabilita IRQ
 .set SUPERVISOR_MODE,        0b10010011 @ 147            Desabilita IRQ
 .set USER_MODE,              0b00010000 @ 16
 .set SYSTEM_MODE,            0b00011111 @ 31
@@ -146,20 +146,24 @@ RESET_HANDLER:
     SET_STACK:
         ldr r0, =STACK_SUP_ADRESS                       @ endereco da pilha de supervisor
         mov sp, r0                                      @ seta o stack pointer do supervisor
+
         ldr r1, = 0xfffafafa@test
-        stmfd sp!, {r1}
+        stmfd sp!, {r1}@test
 
         msr CPSR_c, #0x1F                               @ seta o modo de operacao como system
+        ldr r1, = SYSTEM_MODE
         ldr r0, =STACK_SYS_ADRESS                       @ endereco da pilha no system/user
-        mov sp, r0                                      @ seta o stack pointer no system
+        mov sp, r0
+                                              @ seta o stack pointer no system
         ldr r1, = 0xccfafafa@test
-        stmfd sp!, {r1}
+        stmfd sp!, {r1}@test
 
         msr CPSR_c, #0x12                               @ seta o modo de operacao como IRQ
         ldr r0, =STACK_IRQ_ADRESS                       @ endereco da pilha do IRQ
         mov sp, r0                                      @ seta o stack pointer no IRQ
+
         ldr r1, = 0xeefafafa@test
-        stmfd sp!, {r1}
+        stmfd sp!, {r1}@test
 
 GOTO_USER:
     msr CPSR_c, #0x10
@@ -201,21 +205,29 @@ a7:
     mov r1, # 8        @ tempo
     bl add_alarm
 a8:
-b pulo
-funcao_inutil:
-	and r0, r0, r0
-	mov pc, lr
-pulo:
+
+fim:
+    ldr r0, = tempo_test
+    bl get_time
+
+    mov r0, #5
+    bl set_time
+
+    ldr r1, = tempo_test
+    bl get_time
+teste10:
+    and r0, r0, r0
 loop_infinito:
+    ldr r0, = funcao_inutil    @ endereco
+    mov r1, # 12        @ tempo
+    bl add_alarm
 	b loop_infinito
 
-@%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_mode:
-    mrs r0, CPSR
-    and r1, r0, #0b1000000   @ Flag IRQ
-    and r2, r0, #0b10000000  @ Flag FIQ
-    and r0, r0, #0b11111111  @ CPSR
-
+    b pulo
+    funcao_inutil:
+    	and r0, r0, r0
+    	mov pc, lr
+pulo:
 @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @ BiCo do Marcelo:
 
@@ -234,6 +246,30 @@ add_alarm:
 
 	ldmfd sp!, {r4-r11, pc}							@ Recupera o estado atual dos registradores
 
+@ get_time
+@ Le o tempo de sistema
+@ Parametro:
+@   Ponteiro para a variavel que ira receber o tempo de sistema (unsigned int*)
+@ Suja r0 e r1
+get_time:
+    stmfd sp!, {r0, r7}     @ Empilha o valor do ponteiro para nao perde-lo
+    mov r7, #20         @ Codigo da syscall get_time
+    svc 0x0             @ Chamada da syscall
+    @ O tempo de sistema deve estar em r0
+    ldmfd sp!, {r1, r7}  @ Carrega o ponteiro em r1 e recupera o valor de r7
+    str r0, [r1]        @ Registra o tempo do sistema no endereco indicado pelo ponteiro
+    mov pc, lr          @ Retorna para a funcao anterior
+
+@ set_time
+@ Altera o tempo do sistema
+@ Parametro:
+@   r0: O novo tempo do sistema (unsigned int)
+set_time:
+    stmfd sp!, {r0, r7}     @ Empilha r7 calee save
+    mov r7, #21         @ Codigo da syscall get_time
+    svc 0x0             @ Chamada da syscall
+    ldmfd sp!, {r0, r7}     @ Recupera r7
+    mov pc, lr          @ Retorna para a funcao anterior
 
 @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 @###########################################################################################################################
@@ -280,17 +316,17 @@ SYSCALL_HANDLER:
 	@bleq set_motors_speed_handler
 
 	cmp r7, #20                                     @ get time
-	@bleq GET_TIME
+	bleq GET_TIME
 
 	cmp r7, #21                                     @ set time
-	@bleq SET_TIME
+	bleq SET_TIME
 
 	cmp r7, #22                                     @ set alarm
 	bleq SET_ALARM
 
 	ldr r2, =0x78787878							@ Syscall de troca de modo de operacao
 	cmp r7, r2
-	bleq MODE_CHANGE
+	bleq CHANGE_IRQ_MODE
 
 	ldmfd sp!, {lr}                                 @ recupera o link register da pilha
 
@@ -308,7 +344,7 @@ READ_SONAR:
 
 	mrs r0, CPSR									@ move para r0 o conteudo de cprs para nao perde-lo
     ldr r1, = SYSTEM_MODE
-	msr CPSR, r1                                  	@ Muda para o modo de operacao System
+	msr CPSR_c, r1                                  	@ Muda para o modo de operacao System
     ldr r1, [sp]									@ Recupera o parametro e salva em r1
     msr CPSR, r0 	                             	@ Volta para o modo Supervisor e recupera o cpsr anterior
 
@@ -385,15 +421,43 @@ fim_delay_loop:
 	mov pc, lr
 
 
-@ Syscall que troca de modo de operacao
+@ Syscall que muda o modo de operacao do registrador spsr_svc para o modo IRQ
+@ Desta forma quando a syscall acabar e retornar ao inves do modo anterior
+@ O modo atual sera IRQ.
 @ Parametros:
-@ 	p0: copia do cpsr do modo que se deseja mudar (pilha)
-@ Essa funcao suja apenas o r3
-MODE_CHANGE:
-	ldmfd sp!, {r3}
-    msr SPSR, r3
-    movs pc, lr
+CHANGE_IRQ_MODE:
+    msr SPSR_c, IRQ_MODE
+    mov pc, lr
 
+@ GET_TIME
+@ Obtem o tempo do sistema
+@ Retorno:
+@   r0: Valor do tempo de sistema
+@ Suja r0
+GET_TIME:
+    ldr r0, = SYSTEM_TIME   @ Endereco onde esta armazenado o tempo de sistema
+    ldr r0, [r0]             @ Carrega em r1 o valor do tempo sistema
+
+    mov pc, lr              @ Retorno para o tratador de syscalls
+
+
+@ SET_TIME
+@ Altera o tempo do sistema
+@ Parametros:
+@   p0: Novo tempo de sistema
+@ sUJA r0 e r1
+SET_TIME:
+    ldr r0, = SYSTEM_MODE    @ Mascara para o modo de sistema
+    msr CPSR_c, r0          @ Troca para o modo System (somente altera os bits de controle)
+
+    ldr r0, [sp]            @ Recupera o parametro
+
+    ldr r1, = SUPERVISOR_MODE @ Mascara para o modo Supervisor
+    msr CPSR_c, r1          @ Volta para o modo Supervisor
+
+    ldr r1, = SYSTEM_TIME   @ Endereco onde esta armazenado o tempo de sistema
+    str r0, [r1]            @ Atualiza o novo tempo de sistema
+    mov pc, lr              @ Retorno para o tratador de syscalls
 
 @ SET_ALARM
 @ Syscal de criacao de alarmes
@@ -408,9 +472,9 @@ MODE_CHANGE:
 SET_ALARM:
 	stmfd sp!, {r4-r11, lr}
 
-    mrs r2, CPSR            @ move para r0 o conteudo de cprs para nao perde-lo
+    mrs r2, CPSR            @ move para r0 o conteudo de cpsr para nao perde-lo
     ldr r1, = SYSTEM_MODE
-	msr CPSR, r1         @ Muda para o modo de operacao System
+	msr CPSR_c, r1         @ Muda para o modo de operacao System
 
     ldr r0, [sp]			@ Recupera o endereco da funcao do alarme
     ldr r1, [sp, #4]		@ Recupera o tempo de acionamento do alarme
@@ -465,7 +529,7 @@ tempo_invalido:
 	mov r0, #-2
 
 fim_set_alarme:
-	ldmfd sp!, {r4-r11, lr}
+	ldmfd sp!, {r4-r11, pc}  @ Retorna para o tratador de syscalls
 
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -473,6 +537,11 @@ fim_set_alarme:
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 IRQ_HANDLER:
 	stmfd sp!, {r0-r12, lr}	@ Salva o estado completo para nao prejudicar o codigo do usuario
+    @test
+    @ Habilita interrupcoes do tipo IRQ
+    ldr r0, = IRQ_MODE       @ Mascara para o modo IRQ habilitado para interrupcoes do tipo IRQ
+    msr CPSR_c, r0          @ Grava n
+
     ldr r0, =GPT_SR         @ avisar que houve interrupcao
     mov r1, #0x1
     str r1, [r0]
@@ -493,8 +562,8 @@ IRQ_HANDLER:
     ldmfd sp!, {r0-r3}
 
 fim_irq_handler:
-    sub lr, lr, #4          @ Corrige valor de lr
     ldmfd sp!, {r0-r12, lr}	@ Recupera o estado anterior
+    sub lr, lr, #4          @ Corrige valor de lr
     movs pc, lr				@ Retorna para o modo anterior e recupera as flags
 
 
@@ -522,9 +591,6 @@ loop_alarms:
 	ldrb r3, [r4]			@ Primeiro byte eh uma flag com esse proposito
 	cmp r3, #0x00			@ Caso r3 = 0, quer dizer que a posicao esta livre (nao tem
 	beq passo               @ alarme ativo), portanto essa iteracao do loop sera saltada
-@PERGUNTAR PARA O BORIN cmp r3, #0x01									@ Caso r3 = 1, quer dizer que a posicao esta ocupada
-@bne passo                                       @ Portanto o seu tempo de acionamento deve ser checado
-
 
 	@ Verifica se jah esta na hora de acionar o alarme
 	ldr r3, [r4, #1]		@ Obtem o tempo em que o alarme atual deve ser acionado
@@ -541,21 +607,20 @@ alarme_acionado:
 
 	@ Executa a instrucao contida no endereco do alarme
 	@ Para isso temos que mudar para o modo de usuario
-	@ Antes de fazer isso iremos salvar o cpsr para podermos voltar ao modo IRQ
-	mrs r6, CPSR			@ move para r6 o conteudo de cpsr
-    ldr r10, = USER_MODE
-    msr CPSR, r10 		@ Muda para o modo usuario
+    msr CPSR_c, USER_MODE 		@ Muda para o modo usuario
 
 	ldr r3, [r4, #5]		@ Carrega a instucao no r3
+
 	stmfd sp!, {r0-r11}		@ Salva o contexto atual (todos sao salvos para garantir
 							@ que um erro do usuario comprometa o sistema)
 	blx r3					@ executa a funcao a ser chamada na ocorrencia do alarme
-	ldmfd sp!, {r0-r11}		@ Recupera o contexto atual
+    ldmfd sp!, {r0-r11}		@ Recupera o contexto atual
 
 	@ Agora temos que voltar para o modo IRQ utilizaremos uma syscall
-	stmfd sp!, {r6}			@ Parametro com o cpsr que queremos ficar
 	ldr r7, =0x78787878		@ Identificador da syscall
 	svc 0x0 				@ Chamada da syscal
+
+    mrs r7, CPSR
 
 	@ Nesse momento, o modo IRQ foi retornado, podemos continuar a execucao do loop
 	@ Atualizacao do numero de alarmes ativos
@@ -589,6 +654,7 @@ SYSTEM_TIME: 	.word 0           	@ SYSTEM_TIME inicializa com 0
 @	Os proximos quatro bytes sao utilizados para registrar o tempo de sistema em que o alarme devera ser tocado
 @	Os ultimos quatro bytes armazenam o endereco da instrucao que sera chamada quando o alarme atingir o tempo definido
 @ 1 byte 4 bytes para o endereco da instrucao desse alarme 4 bytes para o tempo do sistema do alarme e
-alarm_vector: 		.skip 72	@ Vetor de "structs" dos alarmes
+alarm_vector: 		    .skip 72	@ Vetor de "structs" dos alarmes
 num_alarms:				.word 0		@ Numero de alarmes criados
 BUSY_HANDLER:			.byte 0		@ Flag que indica se o tratador de alarmes esta ocupado (valor 1) ou livre (valor 0)
+tempo_test:              .skip 4     @test
